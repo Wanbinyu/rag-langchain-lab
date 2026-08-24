@@ -1,0 +1,179 @@
+{
+  "dataset": "questions_graham_85.jsonl",
+  "report": "eval/results/baseline-20260801-030759.json",
+  "version": "2026-08-01",
+  "purpose": "对前15道正样本进行人工校准，区分来源召回、证据充分性、答案覆盖和拒答决策；不写入知识库。",
+  "label_definitions": {
+    "source_judgment": "hit=至少一个期望来源进入Top-K；partial_hit=只命中部分期望来源；miss=期望来源均未进入Top-K；related_miss=未命中期望来源但检索到语义相关来源。",
+    "evidence_judgment": "sufficient=证据足以回答问题；review=有相关证据但存在缺口或来源不够直接；insufficient=当前证据不足，不应编造。",
+    "answer_judgment": "correct=核心内容和主要要点正确；mostly_correct=核心正确但缺少次要要点；partial=只回答了部分问题；not_answered=基准问题应回答但系统未回答。",
+    "current_evidence_should_abstain": "只判断当前检索结果是否应该拒答，不等同于基准题是否应该拒答。"
+  },
+  "cases": [
+    {
+      "id": "graham-001",
+      "source_judgment": "hit",
+      "evidence_judgment": "review",
+      "answer_judgment": "partial",
+      "manual_points_covered": 1,
+      "manual_points_total": 3,
+      "current_evidence_should_abstain": false,
+      "benchmark_should_abstain": false,
+      "note": "命中目标文档并回答了间接发现、少数人尚未意识到价值，但没有回答亲身问题、自己想要且自己能做出的关键组合。"
+    },
+    {
+      "id": "graham-002",
+      "source_judgment": "hit",
+      "evidence_judgment": "sufficient",
+      "answer_judgment": "mostly_correct",
+      "manual_points_covered": 2,
+      "manual_points_total": 3,
+      "current_evidence_should_abstain": false,
+      "benchmark_should_abstain": false,
+      "note": "准确解释了早期刻意做不可规模化的事和服务少量早期客户，但没有明确列出手动招募、手动流程等具体例子。"
+    },
+    {
+      "id": "graham-003",
+      "source_judgment": "hit",
+      "evidence_judgment": "sufficient",
+      "answer_judgment": "correct",
+      "manual_points_covered": 2,
+      "manual_points_total": 2,
+      "current_evidence_should_abstain": false,
+      "benchmark_should_abstain": false,
+      "note": "直接给出做出用户想要的东西，并给出没有做出用户想要的东西会杀死创业公司的对应解释。"
+    },
+    {
+      "id": "graham-004",
+      "source_judgment": "hit",
+      "evidence_judgment": "sufficient",
+      "answer_judgment": "mostly_correct",
+      "manual_points_covered": 2,
+      "manual_points_total": 3,
+      "current_evidence_should_abstain": false,
+      "benchmark_should_abstain": false,
+      "note": "两个时间表的定义和连续时间/小时切分讲清楚了，但没有说明两者冲突会明显损害创造者效率。"
+    },
+    {
+      "id": "graham-005",
+      "source_judgment": "hit",
+      "evidence_judgment": "sufficient",
+      "answer_judgment": "mostly_correct",
+      "manual_points_covered": 1,
+      "manual_points_total": 3,
+      "current_evidence_should_abstain": false,
+      "benchmark_should_abstain": false,
+      "note": "核心定义“财富就是人们想要的东西”正确，但没有展开创造财富让世界变好和创业创造财富两个要点。"
+    },
+    {
+      "id": "graham-006",
+      "source_judgment": "hit",
+      "evidence_judgment": "sufficient",
+      "answer_judgment": "mostly_correct",
+      "manual_points_covered": 2,
+      "manual_points_total": 3,
+      "current_evidence_should_abstain": false,
+      "benchmark_should_abstain": false,
+      "note": "说明上线后才能知道该做什么并快速迭代，基本回答了Launch Fast；没有清楚说出早期想法几乎都会变化。"
+    },
+    {
+      "id": "graham-007",
+      "source_judgment": "hit",
+      "evidence_judgment": "sufficient",
+      "answer_judgment": "mostly_correct",
+      "manual_points_covered": 2,
+      "manual_points_total": 3,
+      "current_evidence_should_abstain": false,
+      "benchmark_should_abstain": false,
+      "note": "Default Alive/Dead的判断逻辑基本正确，缺少Default Dead状态下削减开支或融资的行动建议。自动要点评分0/3属于明显词法假阴性。"
+    },
+    {
+      "id": "graham-008",
+      "source_judgment": "related_miss",
+      "evidence_judgment": "review",
+      "answer_judgment": "partial",
+      "manual_points_covered": 1,
+      "manual_points_total": 2,
+      "current_evidence_should_abstain": false,
+      "benchmark_should_abstain": false,
+      "note": "未召回标注的两篇目标来源，但相关文档支持联合创始人很重要；没有回答坏的联合创始人关系是常见失败原因。来源命中和答案合理性必须分开统计。"
+    },
+    {
+      "id": "graham-009",
+      "source_judgment": "partial_hit",
+      "evidence_judgment": "review",
+      "answer_judgment": "mostly_correct",
+      "manual_points_covered": 2,
+      "manual_points_total": 3,
+      "current_evidence_should_abstain": false,
+      "benchmark_should_abstain": false,
+      "note": "回答了忠实用户提供强反馈和产品方向，也说明无所谓用户难以形成良性循环；口碑传播没有直接展开。"
+    },
+    {
+      "id": "graham-010",
+      "source_judgment": "hit",
+      "evidence_judgment": "sufficient",
+      "answer_judgment": "partial",
+      "manual_points_covered": 1,
+      "manual_points_total": 3,
+      "current_evidence_should_abstain": false,
+      "benchmark_should_abstain": false,
+      "note": "正确指出不认同教条式工作生活平衡，但没有说明热爱工作时二者融合，以及兴趣本身可以构成高质量生活。"
+    },
+    {
+      "id": "graham-011",
+      "source_judgment": "hit",
+      "evidence_judgment": "sufficient",
+      "answer_judgment": "mostly_correct",
+      "manual_points_covered": 2,
+      "manual_points_total": 3,
+      "current_evidence_should_abstain": false,
+      "benchmark_should_abstain": false,
+      "note": "收入覆盖创始人生活费且不再依赖立即融资的解释正确；没有明确把它概括为早期创业里程碑。"
+    },
+    {
+      "id": "graham-012",
+      "source_judgment": "miss",
+      "evidence_judgment": "insufficient",
+      "answer_judgment": "not_answered",
+      "manual_points_covered": 0,
+      "manual_points_total": 3,
+      "current_evidence_should_abstain": true,
+      "benchmark_should_abstain": false,
+      "note": "当前候选中没有标注的专家主题来源，因此拒答对当前证据是合理的；但作为正样本，系统最终仍应通过改进召回回答。"
+    },
+    {
+      "id": "graham-013",
+      "source_judgment": "miss",
+      "evidence_judgment": "insufficient",
+      "answer_judgment": "not_answered",
+      "manual_points_covered": 0,
+      "manual_points_total": 3,
+      "current_evidence_should_abstain": true,
+      "benchmark_should_abstain": false,
+      "note": "当前候选未包含目标文档，拒答可以避免编造，但基准答案要求解释想法变化、执行和洞察的价值，后续应优先修复召回。"
+    },
+    {
+      "id": "graham-014",
+      "source_judgment": "hit",
+      "evidence_judgment": "sufficient",
+      "answer_judgment": "mostly_correct",
+      "manual_points_covered": 1,
+      "manual_points_total": 3,
+      "current_evidence_should_abstain": false,
+      "benchmark_should_abstain": false,
+      "note": "命中Write Like You Talk并解释口语化的好处，但没有完整展开简单、清晰、直接和避免炫技。"
+    },
+    {
+      "id": "graham-015",
+      "source_judgment": "hit",
+      "evidence_judgment": "sufficient",
+      "answer_judgment": "partial",
+      "manual_points_covered": 2,
+      "manual_points_total": 3,
+      "current_evidence_should_abstain": false,
+      "benchmark_should_abstain": false,
+      "note": "召回目标来源并回答了害怕、身份改变和困难；把问题理解为要求具体方法而保守拒绝，遗漏了“完全合理且无风险通常不够大”。"
+    }
+  ]
+}

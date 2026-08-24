@@ -1,0 +1,27 @@
+.env
+.venv/
+__pycache__/
+*.pyc
+.chroma/
+chroma_db/
+chroma_db_zh_en/
+.pytest_cache/
+.ipynb_checkpoints/
+*.egg-info/
+work/
+*.log
+.DS_Store
+
+# Local knowledge bases and generated evaluation artifacts may contain
+# copyrighted or private content. Keep only the public instructions tracked.
+data/*
+!data/README.md
+eval/results/
+_imports/
+项目思考/
+
+# Local editor and coverage output
+.idea/
+.vscode/
+.coverage
+htmlcov/

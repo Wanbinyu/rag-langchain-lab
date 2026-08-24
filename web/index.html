@@ -1,0 +1,130 @@
+<!doctype html>
+<html lang="zh-CN">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>RAG Lab 控制台</title>
+    <link rel="stylesheet" href="/app.css" />
+  </head>
+  <body>
+    <div class="app-shell">
+      <aside class="sidebar">
+        <div class="brand"><span class="brand-mark">R</span><span>RAG Lab</span></div>
+        <p class="sidebar-copy">本地知识库实验控制台</p>
+        <nav aria-label="工作区">
+          <a class="nav-item active" href="#overview">概览</a>
+          <a class="nav-item" href="#knowledge">知识库</a>
+          <a class="nav-item" href="#explorer">检索实验</a>
+          <a class="nav-item" href="#evaluation">评测</a>
+        </nav>
+        <div class="sidebar-footer">
+          <span class="status-dot"></span><span>本地服务</span>
+          <small id="collection-name">读取中...</small>
+        </div>
+      </aside>
+
+      <main>
+        <header class="topbar">
+          <div>
+            <p class="eyebrow">KNOWLEDGE OPERATIONS</p>
+            <h1>RAG 实验控制台</h1>
+          </div>
+          <div class="topbar-actions"><span id="auto-refresh-status" class="auto-refresh-status">自动刷新：每 1 分钟</span><button id="refresh-button" class="icon-button" type="button" title="立即刷新目录与状态">刷新</button></div>
+        </header>
+
+        <section id="overview" class="metrics" aria-label="索引概览">
+          <article><span>知识文档</span><strong id="document-count">--</strong><small>data 目录中可索引的文件</small></article>
+          <article><span>向量片段</span><strong id="chunk-count">--</strong><small>当前 Chroma collection</small></article>
+          <article><span>已索引来源</span><strong id="source-count">--</strong><small>写入向量库的文档来源</small></article>
+          <article><span>Embedding</span><strong id="embedding-provider">--</strong><small>当前向量化方式</small></article>
+        </section>
+
+        <section class="workspace" aria-labelledby="index-title">
+          <div class="section-heading">
+            <div>
+              <p class="eyebrow">INDEX CONTROL</p>
+              <h2 id="index-title">增量索引</h2>
+            </div>
+            <div class="button-row">
+              <button id="sync-button" class="primary-button" type="button">同步变更</button>
+              <button id="force-button" class="secondary-button" type="button">强制重建</button>
+            </div>
+          </div>
+          <div class="progress-area" id="progress-area" hidden>
+            <div class="progress-meta"><span id="progress-message">准备同步</span><span id="progress-percent">0%</span></div>
+            <div class="progress-track"><div id="progress-bar" class="progress-bar"></div></div>
+          </div>
+          <div id="index-report" class="report-line">尚未在本次会话执行同步。</div>
+        </section>
+
+        <section id="knowledge" class="workspace">
+          <div class="section-heading compact-heading">
+            <div><p class="eyebrow">KNOWLEDGE BASE</p><h2>文档清单</h2></div>
+            <div class="button-row"><span id="file-summary" class="muted-label"></span><button id="browse-documents-button" class="secondary-button" type="button">浏览目录</button></div>
+          </div>
+          <p class="report-line">目录状态每 1 分钟自动刷新；“刷新”会立即重新扫描。文件或内容变更仍需点击“同步变更”才会写入向量库。</p>
+          <p id="integrity-status" class="report-line">正在检查数据完整性...</p>
+        </section>
+
+        <section id="explorer" class="workspace explorer">
+          <div class="section-heading compact-heading">
+            <div><p class="eyebrow">RETRIEVAL EXPLORER</p><h2>检索与问答</h2></div>
+            <label class="top-k">召回数量 <input id="top-k" type="number" min="1" max="10" value="3" /></label>
+          </div>
+          <textarea id="question" rows="3" placeholder="输入一个关于知识库的问题，例如：按钮组件有什么作用？"></textarea>
+          <div class="query-actions">
+            <button id="retrieve-button" class="secondary-button" type="button">仅检索</button>
+            <label class="sync-check"><input id="ask-sync" type="checkbox" /> 问答前同步索引</label>
+            <button id="ask-button" class="primary-button" type="button">检索并回答</button>
+          </div>
+          <p id="query-status" class="report-line">“仅检索”不会调用聊天模型，适合检查召回质量。</p>
+          <div id="answer-panel" class="answer-panel" hidden>
+            <p class="eyebrow">ANSWER</p><div id="answer-text"></div>
+          </div>
+          <div id="answer-review-panel" class="answer-review-panel" hidden>
+            <div class="evidence-heading"><div><p class="eyebrow">ANSWER REVIEW</p><strong id="answer-review-status">--</strong></div><span id="answer-review-coverage" class="evidence-provider"></span></div>
+            <p id="answer-review-reason" class="evidence-reason"></p>
+            <p id="answer-review-missing" class="answer-review-missing"></p>
+          </div>
+          <div id="evidence-panel" class="evidence-panel" hidden>
+            <div class="evidence-heading"><div><p class="eyebrow">EVIDENCE CHECK</p><strong id="evidence-status">--</strong></div><span id="evidence-provider" class="evidence-provider"></span></div>
+            <p id="evidence-reason" class="evidence-reason"></p>
+            <div id="evidence-metrics" class="evidence-metrics"></div>
+          </div>
+          <div id="result-summary" class="result-summary" hidden></div>
+          <div id="retrieval-list" class="retrieval-list" aria-live="polite"></div>
+        </section>
+
+        <section id="evaluation" class="workspace evaluation">
+          <div class="section-heading compact-heading">
+            <div><p class="eyebrow">EVALUATION BASELINE</p><h2>评测集与参数统计</h2></div>
+            <div class="evaluation-controls">
+              <label class="top-k">数据集
+                <select id="eval-dataset">
+                  <option value="eval/questions_graham_150.jsonl">Graham 150 题（125 正样本 + 25 拒答）</option>
+                  <option value="eval/questions_graham_85.jsonl">Graham 85 题（65 正样本 + 20 拒答）</option>
+                  <option value="eval/questions.jsonl">原始 15 题基线</option>
+                </select>
+              </label>
+              <label class="top-k">Top-K <input id="eval-top-k" type="number" min="1" max="10" value="3" /></label>
+            </div>
+          </div>
+          <div class="query-actions">
+            <label class="sync-check"><input id="eval-answers" type="checkbox" /> 同时生成模型答案（会调用 Chat API）</label>
+            <button id="evaluate-button" class="primary-button" type="button">运行评测</button>
+          </div>
+          <p id="evaluation-status" class="report-line">当前选择 Graham 150 题：125 道知识库问题、25 道应拒答问题；结果会保存到 eval/results/。</p>
+          <div id="evaluation-summary" class="evaluation-summary" hidden></div>
+          <div id="evaluation-cases" class="evaluation-cases" aria-live="polite"></div>
+        </section>
+      </main>
+    </div>
+    <dialog id="document-dialog" class="document-dialog">
+      <div class="dialog-header"><div><p class="eyebrow">DATA DIRECTORY</p><h2>知识库目录</h2></div><button id="close-documents-button" class="icon-button" type="button" title="关闭目录">关闭</button></div>
+      <div class="dialog-toolbar"><button id="directory-back-button" class="secondary-button" type="button">返回上级</button><span id="directory-path" class="directory-path">data/</span></div>
+      <div id="directory-browser" class="directory-browser" aria-live="polite"></div>
+    </dialog>
+    <template id="result-template"><article class="result-row"><div class="result-rank"></div><div class="result-main"><div class="result-meta"></div><p class="result-content"></p></div><div class="score"><span class="score-vector"></span><span class="score-rerank"></span></div></article></template>
+    <script src="/app.js"></script>
+  </body>
+</html>

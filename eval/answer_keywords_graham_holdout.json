@@ -1,0 +1,27 @@
+{
+  "dataset": "questions_graham_holdout.jsonl",
+  "version": "2026-08-01-holdout-v1",
+  "description": "独立 holdout 的答案结构审阅标注。关键词组只用于生成后的自动复核，不进入 Chat Prompt。",
+  "cases": {
+    "holdout-001": {"expect_abstention": false, "required_groups": [["真实问题", "身边的缺口"], ["自己亲身遇到", "自己遇到"]], "supporting_keywords": []},
+    "holdout-002": {"expect_abstention": false, "required_groups": [["不能规模化", "不规模化", "Do Things That Don’t Scale"], ["第一批客户", "早期用户"], ["可规模化的路径", "之后规模化"]], "supporting_keywords": []},
+    "holdout-003": {"expect_abstention": false, "required_groups": [["少量用户", "少数用户"], ["真正喜欢", "热爱"], ["口碑", "口碑传播"]], "supporting_keywords": []},
+    "holdout-004": {"expect_abstention": false, "required_groups": [["Default Alive"], ["当前烧钱速度", "烧钱速度"], ["盈亏平衡", "资金耗尽前"]], "supporting_keywords": []},
+    "holdout-005": {"expect_abstention": false, "required_groups": [["Maker", "创造者"], ["大块连续时间", "连续时间"], ["会议打断", "时间切碎", "打断"]], "supporting_keywords": []},
+    "holdout-006": {"expect_abstention": false, "required_groups": [["用户反馈", "真实反馈"], ["想法演进", "最初想法"], ["迭代", "调整"]], "supporting_keywords": []},
+    "holdout-007": {"expect_abstention": false, "required_groups": [["声望", "社会声望"], ["真正感兴趣", "真正喜欢", "兴趣"], ["长期投入", "长期"]], "supporting_keywords": []},
+    "holdout-008": {"expect_abstention": false, "required_groups": [["领域前沿", "前沿"], ["缺口", "未解决"], ["探索", "探索它们"]], "supporting_keywords": []},
+    "holdout-009": {"expect_abstention": false, "required_groups": [["写作过程", "写作"], ["新想法", "新的连接"], ["洞察", "发现"]], "supporting_keywords": []},
+    "holdout-010": {"expect_abstention": false, "required_groups": [["低成本", "少花钱"], ["延长生存时间", "延长跑道"], ["减少融资压力", "降低融资依赖", "保持灵活性"]], "supporting_keywords": []},
+    "holdout-011": {"expect_abstention": false, "required_groups": [["持续使用", "真实使用"], ["留存", "持续使用"], ["喜欢", "愿意推荐"]], "supporting_keywords": []},
+    "holdout-012": {"expect_abstention": false, "required_groups": [["信任", "互信"], ["长期合作", "长期合作关系"], ["关系质量", "关系可靠"]], "supporting_keywords": []},
+    "holdout-013": {"expect_abstention": false, "required_groups": [["指标", "衡量"], ["优化", "改善"], ["错误方向", "方向错误"]], "supporting_keywords": []},
+    "holdout-014": {"expect_abstention": false, "required_groups": [["看起来困难", "困难"], ["害怕", "令人害怕"], ["自我认知", "身份认知"]], "supporting_keywords": []},
+    "holdout-015": {"expect_abstention": false, "required_groups": [["兴趣", "真正感兴趣"], ["好奇心", "curiosity"], ["长期深入", "长期", "持续动力"]], "supporting_keywords": []},
+    "holdout-016": {"expect_abstention": true, "required_groups": [], "supporting_keywords": []},
+    "holdout-017": {"expect_abstention": true, "required_groups": [], "supporting_keywords": []},
+    "holdout-018": {"expect_abstention": true, "required_groups": [], "supporting_keywords": []},
+    "holdout-019": {"expect_abstention": true, "required_groups": [], "supporting_keywords": []},
+    "holdout-020": {"expect_abstention": true, "required_groups": [], "supporting_keywords": []}
+  }
+}
