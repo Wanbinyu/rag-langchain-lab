@@ -24,19 +24,22 @@ class EvaluationSummaryTests(unittest.TestCase):
                 retrieved_sources=("a.md",), first_expected_rank=1, source_hit=True,
                 reciprocal_rank=1.0, top_score=0.9, retrieval_ms=10.0, answer="answer",
                 answer_ms=100.0, answer_keyword_hit=True, abstention_hit=None, answer_error=None,
+                retrieval_decision_hit=True,
             ),
             CaseResult(
                 id="second", category="test", question="q2", expected_sources=("b.md",),
                 retrieved_sources=("other.md", "b.md"), first_expected_rank=2, source_hit=True,
                 reciprocal_rank=0.5, top_score=0.7, retrieval_ms=20.0, answer="answer",
                 answer_ms=200.0, answer_keyword_hit=False, abstention_hit=None, answer_error=None,
+                retrieval_decision_hit=True,
             ),
             CaseResult(
                 id="negative", category="test", question="q3", expected_sources=(),
                 retrieved_sources=("a.md",), first_expected_rank=None, source_hit=None,
                 reciprocal_rank=None, top_score=0.4, retrieval_ms=30.0,
                 answer="根据现有资料无法回答", answer_ms=150.0, answer_keyword_hit=None,
-                abstention_hit=True, answer_error=None,
+                abstention_hit=True, answer_error=None, retrieval_abstention_hit=True,
+                retrieval_decision_hit=True,
             ),
         ]
         summary = summarize(results)
@@ -45,7 +48,12 @@ class EvaluationSummaryTests(unittest.TestCase):
         self.assertEqual(summary["mrr"], 0.75)
         self.assertEqual(summary["keyword_hit_rate"], 0.5)
         self.assertEqual(summary["abstention_hit_rate"], 1.0)
+        self.assertEqual(summary["retrieval_abstention_hit_rate"], 1.0)
+        self.assertEqual(summary["retrieval_abstention_correct_count"], 1)
+        self.assertEqual(summary["retrieval_decision_hit_rate"], 1.0)
+        self.assertEqual(summary["retrieval_decision_correct_count"], 3)
         self.assertEqual(summary["retrieval_p95_ms"], 30.0)
+        self.assertEqual(summary["retrieval_max_ms"], 30.0)
 
     def test_graham_answer_points_are_loaded_from_sidecar(self) -> None:
         root = Path(__file__).resolve().parents[1]

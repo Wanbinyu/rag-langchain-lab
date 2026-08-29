@@ -275,6 +275,8 @@ class CaseResult:
     answer_keyword_hit: bool | None
     abstention_hit: bool | None
     answer_error: str | None
+    retrieval_abstention_hit: bool | None = None
+    retrieval_decision_hit: bool | None = None
     expect_abstention: bool = False
     reference_answer: str | None = None
     rerank_score: float | None = None
@@ -511,6 +513,12 @@ def summarize(results: list[CaseResult]) -> dict[str, object]:
     answer_times = [result.answer_ms for result in results if result.answer_ms is not None]
     keyword_cases = [result for result in results if result.answer_keyword_hit is not None]
     abstention_cases = [result for result in results if result.abstention_hit is not None]
+    retrieval_abstention_cases = [
+        result for result in results if result.retrieval_abstention_hit is not None
+    ]
+    retrieval_decision_cases = [
+        result for result in results if result.retrieval_decision_hit is not None
+    ]
     evidence_cases = [result for result in results if result.evidence_status is not None]
     retry_cases = [result for result in results if result.retry_count]
     point_cases = [result for result in results if result.answer_point_coverage is not None]
@@ -585,6 +593,7 @@ def summarize(results: list[CaseResult]) -> dict[str, object]:
         "retrieval_avg_ms": round(statistics.mean(retrieval_times), 1) if retrieval_times else 0.0,
         "retrieval_p50_ms": round(statistics.median(retrieval_times), 1) if retrieval_times else 0.0,
         "retrieval_p95_ms": round(_percentile(retrieval_times, 95), 1),
+        "retrieval_max_ms": round(max(retrieval_times), 1) if retrieval_times else 0.0,
         "answers_generated": len(answer_times),
         "model_answer_calls": sum(time_ms > 0 for time_ms in answer_times),
         "answer_refusal_count": sum(
@@ -597,6 +606,20 @@ def summarize(results: list[CaseResult]) -> dict[str, object]:
         "keyword_hit_rate": rate([bool(result.answer_keyword_hit) for result in keyword_cases]),
         "abstention_hit_rate": rate([bool(result.abstention_hit) for result in abstention_cases]),
         "abstention_correct_count": sum(bool(result.abstention_hit) for result in abstention_cases),
+        "retrieval_abstention_scored_cases": len(retrieval_abstention_cases),
+        "retrieval_abstention_hit_rate": rate(
+            [bool(result.retrieval_abstention_hit) for result in retrieval_abstention_cases]
+        ),
+        "retrieval_abstention_correct_count": sum(
+            bool(result.retrieval_abstention_hit) for result in retrieval_abstention_cases
+        ),
+        "retrieval_decision_scored_cases": len(retrieval_decision_cases),
+        "retrieval_decision_hit_rate": rate(
+            [bool(result.retrieval_decision_hit) for result in retrieval_decision_cases]
+        ),
+        "retrieval_decision_correct_count": sum(
+            bool(result.retrieval_decision_hit) for result in retrieval_decision_cases
+        ),
         "evidence_sufficient_rate": rate(
             [result.evidence_status == "sufficient" for result in evidence_cases]
         ),
@@ -706,6 +729,15 @@ def evaluate(
         answer_keyword_group_coverage: float | None = None
         answer_review: AnswerReview | None = None
         boundary = assess_query_boundary(case.question)
+        retrieval_abstention_hit = (
+            retrieval.evidence.status == "insufficient" or boundary.blocked
+            if case.expect_abstention
+            else None
+        )
+        retrieval_rejected = retrieval.evidence.status == "insufficient" or boundary.blocked
+        retrieval_decision_hit = (
+            retrieval_rejected if case.expect_abstention else not retrieval_rejected
+        )
 
         if llm:
             try:
@@ -767,6 +799,8 @@ def evaluate(
                 answer_keyword_hit=keyword_hit,
                 abstention_hit=abstention_hit,
                 answer_error=answer_error,
+                retrieval_abstention_hit=retrieval_abstention_hit,
+                retrieval_decision_hit=retrieval_decision_hit,
                 reference_answer=case.reference_answer,
                 rerank_score=(
                     round(retrieved[0].rerank_score, 4)

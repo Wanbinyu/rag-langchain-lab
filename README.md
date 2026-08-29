@@ -44,6 +44,30 @@
 
 这些数字衡量的是特定语料和题集上的检索/拒答表现，不等同于通用回答准确率。原始第三方文章和本地生成的逐题报告不随仓库分发；你可以使用自己的合法语料复现实验，评测题与评分脚本保留在 `eval/`。
 
+## 第二领域：Resume Fit AI
+
+仓库包含一个可公开复现的第二领域实验：把 Resume Fit AI 的产品工作流、结构化生成、异步任务、安全隐私和部署边界整理成 5 篇第一方技术文档，并使用独立索引运行 22 道迁移评测题。这个知识包不包含用户简历、JD、API Key、生产地址、模型输出或 Resume Fit AI 的私有源码。
+
+```powershell
+# 默认运行 Hybrid + Cross-Encoder Reranker
+.\.venv\Scripts\python.exe examples\02_resume_fit_ai_eval.py
+
+# Dense / Hybrid / Hybrid + Reranker 消融对比
+.\.venv\Scripts\python.exe examples\02_resume_fit_ai_eval.py --mode all
+```
+
+该实验默认关闭为 Graham 语料编写的 Query Expansion 词表，并使用隔离的 Chroma collection，目的是检查通用索引、BM25/RRF 和重排链路能否迁移到另一个工程领域。题目和答案均已公开，因此它被明确标记为 **transfer/acceptance dataset**，不是 blind test，也不用于宣称未见数据泛化。语料、运行说明和可提交的紧凑报告见 [`examples/resume_fit_ai/`](./examples/resume_fit_ai/) 与 [`eval/reports/resume_fit_ai_transfer_v1.json`](./eval/reports/resume_fit_ai_transfer_v1.json)。
+
+本机受控 Top-3 运行结果如下；18 个域内问题和 4 个越界问题均不调用 Chat API：
+
+| 检索模式 | Recall@3 | MRR | 证据决策准确率 | P50 延迟 |
+|---|---:|---:|---:|---:|
+| Dense | 100% | 0.9259 | 18.18%（保守地全部拒答） | 14.3 ms |
+| Dense + BM25/RRF | 100% | 0.9167 | 18.18%（保守地全部拒答） | 12.4 ms |
+| Dense + BM25/RRF + Cross-Encoder | 100% | **1.0000** | **100%（22/22）** | 1258.2 ms |
+
+“证据决策”要求同时接受 18 个域内问题并拒答 4 个越界问题，避免只看越界拒答而忽略“全部拒答”的退化方案。Cross-Encoder 数据包含首次模型加载和冷启动开销，具体延迟依赖 CPU、模型缓存和候选数量；这个小型验收集主要验证跨领域链路与排名行为，不用于证明生产吞吐或统计显著性。
+
 ## 快速开始
 
 要求 Python 3.11+。以下命令以 PowerShell 为例；macOS/Linux 将激活命令替换为 `source .venv/bin/activate`。
@@ -140,6 +164,8 @@ src/
 web/               无框架的本地控制台前端
 tests/             不调用外部 API 的自动测试
 eval/              评测题、评分配置与诊断工具
+examples/resume_fit_ai/
+                   可公开的第二领域知识包与复现实验说明
 scripts/           数据导入、审计与失败分析脚本
 ```
 
