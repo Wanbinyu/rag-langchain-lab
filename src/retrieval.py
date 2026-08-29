@@ -9,7 +9,7 @@ import time
 from dataclasses import dataclass, field, replace
 from typing import Literal
 
-from langchain_community.vectorstores import Chroma
+from langchain_chroma import Chroma
 from langchain_core.documents import Document
 
 
@@ -119,7 +119,7 @@ _QUERY_ALIAS_PAIRS: tuple[tuple[str, tuple[str, ...]], ...] = (
     ("专家和新手", ("how to be an expert in a changing world", "domain experts", "startup expertise", "beginner vs expert")),
     ("好问题", ("the best essay", "great work", "questions")),
     ("问题本身", ("the best essay", "questions")),
-    # Holdout-style rewordings: keep phrases specific enough to avoid noisy
+    # Calibration-set rewordings: keep phrases specific enough to avoid noisy
     # expansion on unrelated Chinese questions.
     ("日常经历", ("how to get startup ideas", "organic startup ideas", "ideas for startups")),
     ("值得做的产品", ("how to get startup ideas", "organic startup ideas", "startup ideas")),
@@ -1194,7 +1194,7 @@ def assess_evidence(
     ]
     top_score = scores[0]
     score_gap = top_score - scores[1] if len(scores) > 1 else None
-    # Calibrated on holdout (2026-08-12): knowledge hits sit at >=0.333 while
+    # Calibrated on the development set (2026-08-12): knowledge hits sit at >=0.333 while
     # out-of-scope tops out near 0.21. Defaults keep a buffer above OOS.
     sufficient_threshold = _float_env("RERANKER_SUFFICIENT_THRESHOLD", 0.52)
     review_threshold = _float_env("RERANKER_REVIEW_THRESHOLD", 0.30)
@@ -1365,7 +1365,7 @@ def _retry_query(question: str) -> str | None:
 def _should_retry(report: RetrievalReport, retry_query: str | None) -> bool:
     """Decide whether a second retrieval pass is worth the latency.
 
-    Default policy (latency-first after holdout calibration):
+    Default policy (latency-first after development-set calibration):
     - never retry when already ``sufficient``
     - retry ``insufficient`` only when the score is not hopelessly low
     - do **not** retry ordinary ``review`` cases (they are already answerable);

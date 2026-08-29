@@ -1,7 +1,7 @@
 {
   "dataset": "questions_graham_holdout.jsonl",
   "version": "2026-08-01-holdout-v1",
-  "description": "独立 holdout 的答案结构审阅标注。关键词组只用于生成后的自动复核，不进入 Chat Prompt。",
+  "description": "历史文件名保留 holdout，但该数据已参与阈值和检索策略校准，应视为开发/校准集。关键词组只用于生成后的自动复核，不进入 Chat Prompt。",
   "cases": {
     "holdout-001": {"expect_abstention": false, "required_groups": [["真实问题", "身边的缺口"], ["自己亲身遇到", "自己遇到"]], "supporting_keywords": []},
     "holdout-002": {"expect_abstention": false, "required_groups": [["不能规模化", "不规模化", "Do Things That Don’t Scale"], ["第一批客户", "早期用户"], ["可规模化的路径", "之后规模化"]], "supporting_keywords": []},

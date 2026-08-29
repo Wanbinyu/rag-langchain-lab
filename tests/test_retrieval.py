@@ -74,7 +74,7 @@ class EvidenceAssessmentTests(unittest.TestCase):
             with self.subTest(question=question):
                 self.assertIn(expected_term, _expand_query(question))
 
-    def test_holdout_style_questions_get_rule_english_terms(self) -> None:
+    def test_calibration_questions_get_rule_english_terms(self) -> None:
         cases = (
             ("创业者怎样从日常经历里发现值得做的产品？", "how to get startup ideas"),
             ("为什么初创团队有时要亲手给第一批客户搭建产品？", "do things that don't scale"),

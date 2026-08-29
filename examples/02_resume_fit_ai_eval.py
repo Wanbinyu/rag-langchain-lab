@@ -27,8 +27,18 @@ PROFILE_ROOT = ROOT / "examples" / "resume_fit_ai"
 DATASET_PATH = ROOT / "eval" / "questions_resume_fit_ai_transfer_v1.jsonl"
 SUMMARY_PATH = ROOT / "eval" / "reports" / "resume_fit_ai_transfer_v1.json"
 
+SMALL_CORPUS_BUDGET = {
+    # Five short source documents do not need the general-purpose 18-candidate
+    # budget. Six candidates preserve the measured Top-3 quality while cutting
+    # Cross-Encoder work substantially.
+    "RETRIEVAL_CANDIDATE_MIN": "5",
+    "RETRIEVAL_CANDIDATE_MAX": "6",
+    "HYBRID_CANDIDATE_POOL": "6",
+}
+
 MODE_ENV: dict[str, dict[str, str]] = {
     "dense": {
+        **SMALL_CORPUS_BUDGET,
         "QUERY_EXPANSION_ENABLED": "0",
         "HYBRID_RETRIEVAL_ENABLED": "0",
         "BM25_CANDIDATE_LIMIT": "0",
@@ -36,6 +46,7 @@ MODE_ENV: dict[str, dict[str, str]] = {
         "RETRIEVAL_RETRY_ENABLED": "0",
     },
     "hybrid": {
+        **SMALL_CORPUS_BUDGET,
         "QUERY_EXPANSION_ENABLED": "0",
         "HYBRID_RETRIEVAL_ENABLED": "1",
         "BM25_CANDIDATE_LIMIT": "6",
@@ -43,6 +54,7 @@ MODE_ENV: dict[str, dict[str, str]] = {
         "RETRIEVAL_RETRY_ENABLED": "0",
     },
     "rerank": {
+        **SMALL_CORPUS_BUDGET,
         "QUERY_EXPANSION_ENABLED": "0",
         "HYBRID_RETRIEVAL_ENABLED": "1",
         "BM25_CANDIDATE_LIMIT": "6",

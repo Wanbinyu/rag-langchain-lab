@@ -1,4 +1,4 @@
-"""Classify holdout retrieval failures into A–E buckets.
+"""Classify development/calibration retrieval failures into A–E buckets.
 
 A: expected source never reaches a wide Top-N list (pool miss)
 B: expected source appears in wide list but not Top-K (rank/rerank miss)
@@ -120,11 +120,11 @@ def classify_case(
 
 
 def main() -> None:
-    parser = argparse.ArgumentParser(description="Diagnose holdout retrieval failures (A–E)")
+    parser = argparse.ArgumentParser(description="Diagnose calibration-set retrieval failures (A–E)")
     parser.add_argument(
         "--dataset",
         default="eval/questions_graham_holdout.jsonl",
-        help="JSONL evaluation set",
+        help="JSONL development/calibration set (legacy default filename contains holdout)",
     )
     parser.add_argument("-k", "--top-k", type=int, default=3)
     parser.add_argument(
@@ -136,7 +136,7 @@ def main() -> None:
     parser.add_argument(
         "--output",
         default="",
-        help="Optional JSON output path (default: eval/results/diagnose-holdout-<ts>.json)",
+        help="Optional JSON output path (default: eval/results/diagnose-calibration-<ts>.json)",
     )
     args = parser.parse_args()
 
@@ -233,7 +233,7 @@ def main() -> None:
     out = Path(args.output) if args.output else None
     if out is None:
         stamp = datetime.now().strftime("%Y%m%d-%H%M%S")
-        out = settings.root / "eval" / "results" / f"diagnose-holdout-{stamp}.json"
+        out = settings.root / "eval" / "results" / f"diagnose-calibration-{stamp}.json"
     out.parent.mkdir(parents=True, exist_ok=True)
     out.write_text(json.dumps(summary, ensure_ascii=False, indent=2), encoding="utf-8")
 

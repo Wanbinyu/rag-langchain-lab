@@ -143,7 +143,7 @@ class EvaluationSummaryTests(unittest.TestCase):
         self.assertTrue(known)
         self.assertEqual(unknown, ())
 
-    def test_holdout_dataset_is_separate_and_rubric_is_loaded(self) -> None:
+    def test_legacy_holdout_named_calibration_dataset_loads_its_rubric(self) -> None:
         root = Path(__file__).resolve().parents[1]
         cases = load_cases(root / "eval" / "questions_graham_holdout.jsonl")
         self.assertEqual(len(cases), 20)

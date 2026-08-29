@@ -38,7 +38,7 @@ On the tracked 22-case dataset (18 in-domain and 4 out-of-scope), the local Top-
 | Mode | Recall@3 | MRR | Evidence decision accuracy |
 |---|---:|---:|---:|
 | Dense | 100% | 0.9259 | 18.18% (rejects every case) |
-| Dense + BM25/RRF | 100% | 0.9167 | 18.18% (rejects every case) |
+| Dense + BM25/RRF | 100% | 0.9444 | 18.18% (rejects every case) |
 | Dense + BM25/RRF + Cross-Encoder | 100% | 1.0000 | 100% (22/22) |
 
-The evidence decision is correct only when an in-domain question is accepted or an out-of-scope question is rejected. This prevents an “always refuse” policy from looking good. The tracked JSON summary includes latency and configuration details. Cross-Encoder latency includes cold-start/model-loading cost and varies by hardware and cache state.
+The evidence decision is correct only when an in-domain question is accepted or an out-of-scope question is rejected. This prevents an “always refuse” policy from looking good. All three modes use the same six-candidate budget for a fair comparison; the five-document corpus does not need the general-purpose maximum of 18. The tracked JSON summary includes latency and configuration details. Cross-Encoder latency includes cold-start/model-loading cost and varies by hardware and cache state.

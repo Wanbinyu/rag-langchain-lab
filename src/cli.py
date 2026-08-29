@@ -6,7 +6,6 @@ import sys
 from collections.abc import Sequence
 
 from dotenv import load_dotenv
-from langchain_community.embeddings import FastEmbedEmbeddings
 from langchain_core.embeddings import Embeddings
 from langchain_openai import OpenAIEmbeddings
 
@@ -16,6 +15,21 @@ from .indexing import IndexReport, index_status, open_store, sync_index
 from .retrieval import print_retrieval_diagnostics, retrieve, retrieve_report
 
 COMMANDS = {"index", "ask", "chat", "status"}
+
+
+class FastEmbedEmbeddings(Embeddings):
+    """Minimal LangChain adapter for the directly pinned FastEmbed runtime."""
+
+    def __init__(self, model_name: str) -> None:
+        from fastembed import TextEmbedding
+
+        self.model = TextEmbedding(model_name=model_name)
+
+    def embed_documents(self, texts: list[str]) -> list[list[float]]:
+        return [embedding.tolist() for embedding in self.model.embed(texts, batch_size=256)]
+
+    def embed_query(self, text: str) -> list[float]:
+        return next(self.model.query_embed(text, batch_size=256)).tolist()
 
 
 def build_embeddings() -> Embeddings:

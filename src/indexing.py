@@ -6,7 +6,7 @@ from collections import defaultdict
 from collections.abc import Callable
 from dataclasses import dataclass
 
-from langchain_community.vectorstores import Chroma
+from langchain_chroma import Chroma
 from langchain_core.documents import Document
 from langchain_core.embeddings import Embeddings
 from langchain_text_splitters import RecursiveCharacterTextSplitter
