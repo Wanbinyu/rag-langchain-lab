@@ -3,14 +3,14 @@
   "description": "Post-generation concept groups for the small Resume Fit AI answer audit.",
   "cases": {
     "resume-answer-001": {"required_groups": [["权威输入", "authoritative"], ["模型调用前", "分析前"], ["修正", "纠正"]]},
-    "resume-answer-002": {"required_groups": [["有限", "少量"], ["原简历", "原有布局"], ["延迟", "低延迟"]]},
+    "resume-answer-002": {"required_groups": [["有限", "少量"], ["原简历", "原始简历", "原有布局"], ["延迟", "低延迟"]]},
     "resume-answer-003": {"required_groups": [["0–100", "分数"], ["长度限制", "长度"], ["未知字段", "未知属性", "白名单"], ["转义", "text nodes"]]},
-    "resume-answer-004": {"required_groups": [["一次", "最多一次"], ["覆盖惩罚", "coverage penalty"], ["改善", "更好"], ["原稿", "第一版"]]},
-    "resume-answer-005": {"required_groups": [["超时", "timeout"], ["429"], ["5xx"], ["重复任务", "duplicate"]]},
+    "resume-answer-004": {"required_groups": [["一次", "最多一次"], ["覆盖惩罚", "覆盖率惩罚", "coverage penalty"], ["改善", "更好"], ["原稿", "初稿", "第一版"]]},
+    "resume-answer-005": {"required_groups": [["超时", "timeout"], ["429"], ["5xx"], ["重复任务", "重复的 AI 任务", "duplicate"]]},
     "resume-answer-006": {"required_groups": [["立即", "完成后清除"], ["十五分钟", "15 分钟"], ["本地存储", "local storage"]]},
     "resume-answer-007": {"required_groups": [["一层", "不能证明"], ["数据边界"], ["工具", "外部工具"], ["白名单", "allowlist"]]},
     "resume-answer-008": {"required_groups": [["AI Key", "provider key"], ["HTTPS"], ["运营者", "contact"]]},
-    "resume-answer-009": {"required_groups": [["进程内", "process-local"], ["共享队列", "shared queue"], ["限流", "rate-limit"], ["取消", "cancellation"]]},
+    "resume-answer-009": {"required_groups": [["进程内", "进程本地", "process-local"], ["共享队列", "共享状态", "shared queue"], ["限流", "rate-limit"], ["取消", "cancellation"]]},
     "resume-answer-010": {"required_groups": []},
     "resume-answer-011": {"required_groups": []},
     "resume-answer-012": {"required_groups": []}

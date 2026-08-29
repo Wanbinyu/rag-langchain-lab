@@ -73,6 +73,8 @@
 
 仓库还提供 12 题的小型回答审计（9 个应回答、3 个应拒答），在既有概念覆盖和拒答指标之外，检查非拒答是否包含“结论 / 核心要点 / 证据边界 / 来源”四段、来源是否确实进入过检索上下文，并单独统计缺失引用和虚构引用。只有独立的一句拒答才计为正确拒答，带有局部结论和拒答说明的回答不会被误算。这个确定性检查只证明“结构完整、引用来源可追溯”，不宣称能自动证明句子级忠实度。运行需要有效的 OpenAI-compatible Chat API；若任一回答调用失败，脚本会脱敏错误并只保留被 Git 忽略的本地详细报告，不发布不完整成绩。
 
+首次完整答案运行没有 API 错误：9/9 非拒答满足四段结构，12/12 引用/拒答来源规则正确，且没有缺失或虚构引用。初始字面概念覆盖为 23/32；人工审阅确认其中 6 项只是同义表达未被规则识别，补充 sidecar 别名后对同一批答案确定性重评分为 29/32（90.63%）。剩余 3 项是真实内容遗漏，未通过改提示词或重生成掩盖。原始机器报告与后续 rubric 审计分别见 [`eval/reports/resume_fit_ai_answers_v1.json`](./eval/reports/resume_fit_ai_answers_v1.json) 和 [`eval/audits/resume_fit_ai_answers_v1_first_run.md`](./eval/audits/resume_fit_ai_answers_v1_first_run.md)。
+
 ## 快速开始
 
 要求 Python 3.11+。以下命令以 PowerShell 为例；macOS/Linux 将激活命令替换为 `source .venv/bin/activate`。

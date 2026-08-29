@@ -54,3 +54,13 @@ On the tracked 22-case dataset (18 in-domain and 4 out-of-scope), the local Top-
 | Dense + BM25/RRF + Cross-Encoder | 100% | 1.0000 | 100% (22/22) |
 
 The evidence decision is correct only when an in-domain question is accepted or an out-of-scope question is rejected. This prevents an “always refuse” policy from looking good. All three modes use the same six-candidate budget for a fair comparison; the five-document corpus does not need the general-purpose maximum of 18. The tracked JSON summary includes latency and configuration details. Cross-Encoder latency includes cold-start/model-loading cost and varies by hardware and cache state.
+
+## Recorded answer audit
+
+The first successful 12-case answer run made nine Chat API calls with zero
+errors. All nine generated answers satisfied the four-section contract; all 12
+cases passed citation/refusal provenance checks, with no missing or unsupported
+citations. Literal concept-group coverage was initially 23/32. Manual rubric
+review identified six equivalent phrasings, bringing a deterministic rescore of
+the same outputs to 29/32 (90.63%). Three genuine omissions remain documented
+under `eval/audits/`; the model outputs were not regenerated after review.

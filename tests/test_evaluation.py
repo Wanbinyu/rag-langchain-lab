@@ -182,6 +182,26 @@ class EvaluationSummaryTests(unittest.TestCase):
         self.assertEqual(covered, (True, True))
         self.assertEqual(coverage, 1.0)
 
+    def test_resume_fit_answer_rubric_accepts_audited_phrasings(self) -> None:
+        root = Path(__file__).resolve().parents[1]
+        cases = {
+            case.id: case
+            for case in load_cases(root / "eval" / "questions_resume_fit_ai_answers_v1.jsonl")
+        }
+        samples = {
+            "resume-answer-002": "有限字段、原始简历布局和低延迟预览。",
+            "resume-answer-004": "最多一次；覆盖率惩罚改善才采用，否则保留初稿。",
+            "resume-answer-005": "超时、429、5xx 可重试，并避免重复的 AI 任务。",
+            "resume-answer-009": "进程本地状态无法跨实例共享，需要共享状态、限流和取消。",
+        }
+        for case_id, answer in samples.items():
+            _, covered, coverage = _answer_keyword_group_scores(
+                cases[case_id].answer_keyword_groups,
+                answer,
+            )
+            self.assertTrue(all(covered), case_id)
+            self.assertEqual(coverage, 1.0)
+
     def test_answer_structure_review_combines_coverage_and_evidence(self) -> None:
         groups = (("用户真正想要",), ("快速迭代",))
         complete = assess_answer_structure(
