@@ -18,6 +18,11 @@ From the repository root:
 # Regenerate the tracked, compact experiment summary.
 .\.venv\Scripts\python.exe examples\02_resume_fit_ai_eval.py `
   --mode all --publish-summary
+
+# Run the small answer/citation/refusal audit. A summary is published only if
+# every required Chat API call succeeds.
+.\.venv\Scripts\python.exe examples\02_resume_fit_ai_eval.py `
+  --dataset answers --mode rerank --with-answers --publish-summary
 ```
 
 If a configured Hugging Face mirror cannot serve the ONNX files, retry the process with the official endpoint:
@@ -30,6 +35,13 @@ $env:HF_ENDPOINT = "https://huggingface.co"
 The isolated Chroma database is written under `work/resume-fit-ai-transfer/` and normal detailed reports are written under `eval/results/`; both locations are ignored by Git. The compact summary produced by `--publish-summary` is written to `eval/reports/resume_fit_ai_transfer_v1.json`.
 
 This is a transfer/acceptance dataset, not a blind test. Its questions and expected sources are public and should not be used to claim unseen generalization.
+
+The repository also contains a 30-case prospective frozen set. Its SHA-256 and
+one-run policy are recorded under `eval/frozen/`. The first run achieved 20/20
+in-domain Top-3 hits, MRR 1.0000, 8/10 out-of-scope rejections, and 24/30
+overall evidence decisions. Four in-domain cases were conservative false
+refusals even though the expected source ranked first; two boundary cases were
+false acceptances. The test was not used for post-run tuning.
 
 ## Recorded result
 

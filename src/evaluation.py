@@ -29,6 +29,11 @@ ABSTENTION_MARKERS = (ABSTENTION_TEXT, "资料中没有答案", "无法回答")
 
 
 _COVERAGE_TOKEN_RE = re.compile(r"[a-z0-9]+|[\u4e00-\u9fff]+", re.IGNORECASE)
+_CITATION_HEADING_RE = re.compile(r"(?:\*{0,2})来源(?:\*{0,2})\s*[：:]", re.IGNORECASE)
+_CITATION_FILENAME_RE = re.compile(
+    r"(?<![\w.-])([\w][\w.-]*\.(?:md|txt|pdf|docx?))(?![\w.-])",
+    re.IGNORECASE,
+)
 
 # These are deliberately small, auditable aliases for the Graham rubric. The
 # raw lexical score remains unchanged; normalized scoring is an additional
@@ -82,6 +87,38 @@ def _is_full_abstention(answer: str) -> bool:
         for marker in ABSTENTION_MARKERS
         if marker
     }
+
+
+def _extract_cited_sources(answer: str | None) -> tuple[str, ...]:
+    """Extract source filenames only from the answer's final source section."""
+    if not answer:
+        return ()
+    headings = list(_CITATION_HEADING_RE.finditer(answer))
+    if not headings:
+        return ()
+    source_section = answer[headings[-1].end():]
+    return tuple(
+        dict.fromkeys(
+            match.group(1) for match in _CITATION_FILENAME_RE.finditer(source_section)
+        )
+    )
+
+
+def _assess_citations(
+    answer: str | None,
+    allowed_sources: tuple[str, ...],
+) -> tuple[tuple[str, ...], tuple[str, ...], bool | None]:
+    """Check citation presence and provenance without claiming semantic faithfulness."""
+    if answer is None:
+        return (), (), None
+    cited_sources = _extract_cited_sources(answer)
+    allowed = {Path(source).name.casefold() for source in allowed_sources}
+    unsupported = tuple(
+        source for source in cited_sources if Path(source).name.casefold() not in allowed
+    )
+    if _is_full_abstention(answer):
+        return cited_sources, unsupported, not cited_sources
+    return cited_sources, unsupported, bool(cited_sources) and not unsupported
 
 
 def _coverage_features(text: str) -> tuple[set[str], set[str]]:
@@ -303,6 +340,9 @@ class CaseResult:
     answer_review_reason_code: str | None = None
     answer_review_reason: str | None = None
     answer_review_missing_groups: tuple[tuple[str, ...], ...] = ()
+    cited_sources: tuple[str, ...] = ()
+    unsupported_cited_sources: tuple[str, ...] = ()
+    citation_validity_hit: bool | None = None
 
 
 def _load_answer_points(path: Path) -> dict[str, tuple[str, ...]]:
@@ -564,6 +604,7 @@ def summarize(results: list[CaseResult]) -> dict[str, object]:
         if result.answer_review_status in {"sufficient", "review", "insufficient"}
     ]
     answer_review_counts = Counter(result.answer_review_status for result in answer_review_cases)
+    citation_cases = [result for result in results if result.citation_validity_hit is not None]
     context_counts = [result.context_result_count for result in results]
     parent_context_counts = [result.parent_context_count for result in results]
     neighbor_context_counts = [result.neighbor_context_count for result in results]
@@ -674,6 +715,18 @@ def summarize(results: list[CaseResult]) -> dict[str, object]:
         "answer_review_missing_group_cases": sum(
             bool(result.answer_review_missing_groups) for result in answer_review_cases
         ),
+        "citation_scored_cases": len(citation_cases),
+        "citation_valid_count": sum(bool(result.citation_validity_hit) for result in citation_cases),
+        "citation_valid_rate": rate(
+            [bool(result.citation_validity_hit) for result in citation_cases]
+        ),
+        "citation_missing_count": sum(
+            not result.cited_sources and not _is_full_abstention(result.answer or "")
+            for result in citation_cases
+        ),
+        "unsupported_citation_count": sum(
+            len(result.unsupported_cited_sources) for result in citation_cases
+        ),
         "retrieval_retry_count": len(retry_cases),
         "retrieval_retry_rate": round(len(retry_cases) / len(results), 4) if results else 0.0,
         "avg_context_result_count": round(statistics.mean(context_counts), 2) if context_counts else 0.0,
@@ -728,6 +781,9 @@ def evaluate(
         answer_keyword_group_covered: tuple[bool, ...] = ()
         answer_keyword_group_coverage: float | None = None
         answer_review: AnswerReview | None = None
+        cited_sources: tuple[str, ...] = ()
+        unsupported_cited_sources: tuple[str, ...] = ()
+        citation_validity_hit: bool | None = None
         boundary = assess_query_boundary(case.question)
         retrieval_abstention_hit = (
             retrieval.evidence.status == "insufficient" or boundary.blocked
@@ -778,6 +834,15 @@ def evaluate(
                         answer,
                         retrieval.evidence.status,
                     )
+                context_sources = tuple(
+                    str(item.document.metadata.get("source", "unknown"))
+                    for item in context_results
+                )
+                (
+                    cited_sources,
+                    unsupported_cited_sources,
+                    citation_validity_hit,
+                ) = _assess_citations(answer, context_sources)
             except Exception as error:
                 answer_error = f"{type(error).__name__}: {error}"
 
@@ -830,6 +895,9 @@ def evaluate(
                 answer_review_reason_code=answer_review.reason_code if answer_review else None,
                 answer_review_reason=answer_review.reason if answer_review else None,
                 answer_review_missing_groups=answer_review.missing_groups if answer_review else (),
+                cited_sources=cited_sources,
+                unsupported_cited_sources=unsupported_cited_sources,
+                citation_validity_hit=citation_validity_hit,
             )
         )
     return results

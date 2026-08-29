@@ -1,0 +1,17 @@
+{
+  "schema_version": 1,
+  "dataset": "eval/questions_resume_fit_ai_frozen_v1.jsonl",
+  "sha256": "1437f57c405ab50c01f91e5cbf4ac0fa8bfe02baa9a421319db26651b85e4f6e",
+  "case_count": 30,
+  "in_domain_count": 20,
+  "out_of_scope_count": 10,
+  "created_at": "2026-08-29T00:00:00+08:00",
+  "policy": "Frozen before first execution. Do not use these questions, labels, or results for retrieval rules, threshold tuning, query aliases, or prompt tuning.",
+  "first_run": {
+    "executed_at": "2026-08-29T11:41:32+08:00",
+    "profile": "rerank",
+    "top_k": 3,
+    "report": "eval/reports/resume_fit_ai_frozen_v1.json",
+    "post_run_tuning": false
+  }
+}

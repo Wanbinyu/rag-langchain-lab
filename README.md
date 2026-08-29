@@ -69,6 +69,10 @@
 
 “证据决策”要求同时接受 18 个域内问题并拒答 4 个越界问题，避免只看越界拒答而忽略“全部拒答”的退化方案。该 5 文档语料把统一候选预算从通用配置的最多 18 个收紧为 6 个；本次记录中 Cross-Encoder P50 从优化前的 1258.2 ms 降到 957.0 ms，Recall@3、MRR 与证据决策不变。延迟包含首次模型加载和冷启动开销，具体数值依赖 CPU、模型缓存和候选数量；这个小型验收集主要验证跨领域链路与排名行为，不用于证明生产吞吐或统计显著性。
 
+在上述开发与迁移验证完成后，项目另外冻结了一个不参与调参的 30 题前瞻测试集。2026-08-29 的首次且唯一一次 Top-3 运行中，20 个域内题全部命中且 MRR 为 1.0000；10 个越界题正确拒绝 8 个，综合证据决策为 24/30。4 个失败是“来源排第 1 但证据门控仍拒答”，另 2 个是把执行简历改写的请求和实时付费用户问题判为需复核。运行后没有继续调阈值或添加规则。冻结清单、校验和、逐类归因和紧凑报告见 [`eval/frozen/`](./eval/frozen/)、[`eval/audits/`](./eval/audits/) 与 [`eval/reports/resume_fit_ai_frozen_v1.json`](./eval/reports/resume_fit_ai_frozen_v1.json)。
+
+仓库还提供 12 题的小型回答审计（9 个应回答、3 个应拒答），在既有概念覆盖和拒答指标之外，检查非拒答是否列出来源、来源是否确实进入过检索上下文，并单独统计缺失引用和虚构引用。这个确定性检查只证明“引用来源可追溯”，不宣称能自动证明句子级忠实度。运行需要有效的 OpenAI-compatible Chat API；若任一回答调用失败，脚本只保留被 Git 忽略的本地详细报告，不发布不完整成绩。
+
 ## 快速开始
 
 要求 Python 3.11+。以下命令以 PowerShell 为例；macOS/Linux 将激活命令替换为 `source .venv/bin/activate`。
@@ -133,6 +137,10 @@ API Key 只应放在本地 `.env`；该文件已被 Git 忽略。Embedding 默�
 # 同时生成回答（会产生 API 调用费用）
 .\.venv\Scripts\python.exe -m src.evaluation `
   --dataset eval\questions_graham_85.jsonl -k 3 --with-answers
+
+# Resume Fit AI 小型回答/引用/拒答审计（会产生 API 调用费用）
+.\.venv\Scripts\python.exe examples\02_resume_fit_ai_eval.py `
+  --dataset answers --mode rerank --with-answers --publish-summary
 ```
 
 若使用仓库内的 Graham 题集，需要自行准备有权使用的对应文章，并保持 `source` 文件名与题集一致。评测报告会写入本地 `eval/results/`，该目录默认不提交。

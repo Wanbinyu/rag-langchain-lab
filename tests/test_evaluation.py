@@ -9,6 +9,8 @@ from src.evaluation import (
     CaseResult,
     _answer_keyword_group_scores,
     _answer_point_scores,
+    _assess_citations,
+    _extract_cited_sources,
     assess_answer_structure,
     keyword_groups_for_question,
     load_cases,
@@ -17,6 +19,29 @@ from src.evaluation import (
 
 
 class EvaluationSummaryTests(unittest.TestCase):
+    def test_citation_review_requires_context_source_for_non_refusal(self) -> None:
+        answer = "结论：支持。\n来源：01_product_workflow.md、invented.md"
+        cited = _extract_cited_sources(answer)
+        cited, unsupported, valid = _assess_citations(
+            answer,
+            ("01_product_workflow.md", "02_ai_generation_pipeline.md"),
+        )
+        self.assertEqual(cited, ("01_product_workflow.md", "invented.md"))
+        self.assertEqual(unsupported, ("invented.md",))
+        self.assertFalse(valid)
+
+    def test_citation_review_accepts_supported_source_and_bare_refusal(self) -> None:
+        _, unsupported, valid = _assess_citations(
+            "结论：支持。\n来源：`03_async_task_lifecycle.md`",
+            ("03_async_task_lifecycle.md",),
+        )
+        self.assertEqual(unsupported, ())
+        self.assertTrue(valid)
+        cited, unsupported, valid = _assess_citations("根据现有资料无法回答", ())
+        self.assertEqual(cited, ())
+        self.assertEqual(unsupported, ())
+        self.assertTrue(valid)
+
     def test_summary_calculates_retrieval_and_answer_metrics(self) -> None:
         results = [
             CaseResult(
