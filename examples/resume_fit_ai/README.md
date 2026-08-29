@@ -19,8 +19,8 @@ From the repository root:
 .\.venv\Scripts\python.exe examples\02_resume_fit_ai_eval.py `
   --mode all --publish-summary
 
-# Run the small answer/citation/refusal audit. A summary is published only if
-# every required Chat API call succeeds.
+# Run the small answer/structure/citation/refusal audit. A summary is published
+# only if every required Chat API call succeeds.
 .\.venv\Scripts\python.exe examples\02_resume_fit_ai_eval.py `
   --dataset answers --mode rerank --with-answers --publish-summary
 ```

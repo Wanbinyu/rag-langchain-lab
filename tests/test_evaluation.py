@@ -9,8 +9,11 @@ from src.evaluation import (
     CaseResult,
     _answer_keyword_group_scores,
     _answer_point_scores,
+    _assess_answer_contract,
     _assess_citations,
     _extract_cited_sources,
+    _is_full_abstention,
+    _safe_error_message,
     assess_answer_structure,
     keyword_groups_for_question,
     load_cases,
@@ -19,6 +22,38 @@ from src.evaluation import (
 
 
 class EvaluationSummaryTests(unittest.TestCase):
+    def test_answer_contract_requires_all_four_sections_for_non_refusal(self) -> None:
+        complete = (
+            "**结论：** 可以。\n"
+            "**核心要点：**\n- 要点\n"
+            "**证据边界：** 资料已覆盖。\n"
+            "**来源：** 01_product_workflow.md"
+        )
+        missing, valid = _assess_answer_contract(complete)
+        self.assertEqual(missing, ())
+        self.assertTrue(valid)
+
+        missing, valid = _assess_answer_contract("结论：可以。\n来源：a.md")
+        self.assertEqual(missing, ("核心要点", "证据边界"))
+        self.assertFalse(valid)
+
+        missing, valid = _assess_answer_contract("根据现有资料无法回答")
+        self.assertEqual(missing, ())
+        self.assertIsNone(valid)
+
+    def test_refusal_match_rejects_partial_answer_with_caveat(self) -> None:
+        self.assertTrue(_is_full_abstention("根据现有资料无法回答。"))
+        self.assertFalse(
+            _is_full_abstention("资料支持前半部分，但后续细节无法回答。")
+        )
+
+    def test_answer_error_redacts_key_fragments_and_limits_length(self) -> None:
+        error = RuntimeError("Your api key: ****2166 is invalid " + "x" * 600)
+        message = _safe_error_message(error)
+        self.assertIn("api key: [REDACTED]", message)
+        self.assertNotIn("2166", message)
+        self.assertLessEqual(len(message), 500)
+
     def test_citation_review_requires_context_source_for_non_refusal(self) -> None:
         answer = "结论：支持。\n来源：01_product_workflow.md、invented.md"
         cited = _extract_cited_sources(answer)
@@ -50,6 +85,7 @@ class EvaluationSummaryTests(unittest.TestCase):
                 reciprocal_rank=1.0, top_score=0.9, retrieval_ms=10.0, answer="answer",
                 answer_ms=100.0, answer_keyword_hit=True, abstention_hit=None, answer_error=None,
                 retrieval_decision_hit=True,
+                answer_contract_hit=True,
             ),
             CaseResult(
                 id="second", category="test", question="q2", expected_sources=("b.md",),
@@ -57,6 +93,8 @@ class EvaluationSummaryTests(unittest.TestCase):
                 reciprocal_rank=0.5, top_score=0.7, retrieval_ms=20.0, answer="answer",
                 answer_ms=200.0, answer_keyword_hit=False, abstention_hit=None, answer_error=None,
                 retrieval_decision_hit=True,
+                answer_contract_hit=False,
+                answer_contract_missing_sections=("证据边界",),
             ),
             CaseResult(
                 id="negative", category="test", question="q3", expected_sources=(),
@@ -79,6 +117,12 @@ class EvaluationSummaryTests(unittest.TestCase):
         self.assertEqual(summary["retrieval_decision_correct_count"], 3)
         self.assertEqual(summary["retrieval_p95_ms"], 30.0)
         self.assertEqual(summary["retrieval_max_ms"], 30.0)
+        self.assertEqual(summary["answer_contract_scored_cases"], 2)
+        self.assertEqual(summary["answer_contract_valid_rate"], 0.5)
+        self.assertEqual(
+            summary["answer_contract_missing_section_counts"],
+            {"证据边界": 1},
+        )
 
     def test_graham_answer_points_are_loaded_from_sidecar(self) -> None:
         root = Path(__file__).resolve().parents[1]

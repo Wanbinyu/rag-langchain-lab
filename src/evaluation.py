@@ -26,6 +26,7 @@ from .retrieval import retrieve_report
 
 ABSTENTION_TEXT = "根据现有资料无法回答"
 ABSTENTION_MARKERS = (ABSTENTION_TEXT, "资料中没有答案", "无法回答")
+REQUIRED_ANSWER_SECTIONS = ("结论", "核心要点", "证据边界", "来源")
 
 
 _COVERAGE_TOKEN_RE = re.compile(r"[a-z0-9]+|[\u4e00-\u9fff]+", re.IGNORECASE)
@@ -33,6 +34,14 @@ _CITATION_HEADING_RE = re.compile(r"(?:\*{0,2})来源(?:\*{0,2})\s*[：:]", re.I
 _CITATION_FILENAME_RE = re.compile(
     r"(?<![\w.-])([\w][\w.-]*\.(?:md|txt|pdf|docx?))(?![\w.-])",
     re.IGNORECASE,
+)
+_ANSWER_SECTION_RE = re.compile(
+    r"^\s*(?:#{1,6}\s*)?(?:[-*]\s*)?(?:\*{0,2})"
+    r"(结论|核心要点|证据边界|来源)(?:\*{0,2})\s*[：:]",
+    re.MULTILINE,
+)
+_API_KEY_ERROR_RE = re.compile(
+    r"(?i)(api[_\s-]*key\s*(?::|=|is)?\s*)([^\s,;}]+)"
 )
 
 # These are deliberately small, auditable aliases for the Graham rubric. The
@@ -119,6 +128,24 @@ def _assess_citations(
     if _is_full_abstention(answer):
         return cited_sources, unsupported, not cited_sources
     return cited_sources, unsupported, bool(cited_sources) and not unsupported
+
+
+def _assess_answer_contract(
+    answer: str | None,
+) -> tuple[tuple[str, ...], bool | None]:
+    """Check the four auditable sections required for generated answers."""
+    if answer is None or _is_full_abstention(answer):
+        return (), None
+    present = {match.group(1) for match in _ANSWER_SECTION_RE.finditer(answer)}
+    missing = tuple(section for section in REQUIRED_ANSWER_SECTIONS if section not in present)
+    return missing, not missing
+
+
+def _safe_error_message(error: Exception) -> str:
+    """Keep actionable error context without persisting API-key fragments."""
+    message = f"{type(error).__name__}: {error}"
+    redacted = _API_KEY_ERROR_RE.sub(r"\1[REDACTED]", message)
+    return redacted if len(redacted) <= 500 else f"{redacted[:497]}..."
 
 
 def _coverage_features(text: str) -> tuple[set[str], set[str]]:
@@ -343,6 +370,8 @@ class CaseResult:
     cited_sources: tuple[str, ...] = ()
     unsupported_cited_sources: tuple[str, ...] = ()
     citation_validity_hit: bool | None = None
+    answer_contract_hit: bool | None = None
+    answer_contract_missing_sections: tuple[str, ...] = ()
 
 
 def _load_answer_points(path: Path) -> dict[str, tuple[str, ...]]:
@@ -605,6 +634,9 @@ def summarize(results: list[CaseResult]) -> dict[str, object]:
     ]
     answer_review_counts = Counter(result.answer_review_status for result in answer_review_cases)
     citation_cases = [result for result in results if result.citation_validity_hit is not None]
+    answer_contract_cases = [
+        result for result in results if result.answer_contract_hit is not None
+    ]
     context_counts = [result.context_result_count for result in results]
     parent_context_counts = [result.parent_context_count for result in results]
     neighbor_context_counts = [result.neighbor_context_count for result in results]
@@ -727,6 +759,20 @@ def summarize(results: list[CaseResult]) -> dict[str, object]:
         "unsupported_citation_count": sum(
             len(result.unsupported_cited_sources) for result in citation_cases
         ),
+        "answer_contract_scored_cases": len(answer_contract_cases),
+        "answer_contract_valid_count": sum(
+            bool(result.answer_contract_hit) for result in answer_contract_cases
+        ),
+        "answer_contract_valid_rate": rate(
+            [bool(result.answer_contract_hit) for result in answer_contract_cases]
+        ),
+        "answer_contract_missing_section_counts": dict(
+            Counter(
+                section
+                for result in answer_contract_cases
+                for section in result.answer_contract_missing_sections
+            )
+        ),
         "retrieval_retry_count": len(retry_cases),
         "retrieval_retry_rate": round(len(retry_cases) / len(results), 4) if results else 0.0,
         "avg_context_result_count": round(statistics.mean(context_counts), 2) if context_counts else 0.0,
@@ -784,6 +830,8 @@ def evaluate(
         cited_sources: tuple[str, ...] = ()
         unsupported_cited_sources: tuple[str, ...] = ()
         citation_validity_hit: bool | None = None
+        answer_contract_hit: bool | None = None
+        answer_contract_missing_sections: tuple[str, ...] = ()
         boundary = assess_query_boundary(case.question)
         retrieval_abstention_hit = (
             retrieval.evidence.status == "insufficient" or boundary.blocked
@@ -809,7 +857,7 @@ def evaluate(
                         context_results,
                     )
                 if case.expect_abstention:
-                    abstention_hit = any(marker in answer for marker in ABSTENTION_MARKERS)
+                    abstention_hit = _is_full_abstention(answer)
                 elif case.expected_keywords:
                     normalized_answer = answer.lower()
                     keyword_hit = any(keyword.lower() in normalized_answer for keyword in case.expected_keywords)
@@ -843,8 +891,12 @@ def evaluate(
                     unsupported_cited_sources,
                     citation_validity_hit,
                 ) = _assess_citations(answer, context_sources)
+                (
+                    answer_contract_missing_sections,
+                    answer_contract_hit,
+                ) = _assess_answer_contract(answer)
             except Exception as error:
-                answer_error = f"{type(error).__name__}: {error}"
+                answer_error = _safe_error_message(error)
 
         results.append(
             CaseResult(
@@ -898,6 +950,8 @@ def evaluate(
                 cited_sources=cited_sources,
                 unsupported_cited_sources=unsupported_cited_sources,
                 citation_validity_hit=citation_validity_hit,
+                answer_contract_hit=answer_contract_hit,
+                answer_contract_missing_sections=answer_contract_missing_sections,
             )
         )
     return results
