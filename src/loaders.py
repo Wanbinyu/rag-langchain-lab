@@ -8,6 +8,7 @@ from pathlib import Path
 from langchain_core.documents import Document
 
 SUPPORTED_SUFFIXES = {".txt", ".md", ".markdown"}
+SKIP_FILENAMES = {"retrieval_glossary.json"}
 
 
 @dataclass(frozen=True)
@@ -70,7 +71,10 @@ def load_documents_report(data_dir: Path) -> tuple[list[Document], DataIntegrity
     files = sorted(
         path
         for path in data_dir.rglob("*")
-        if path.is_file() and path.suffix.lower() in SUPPORTED_SUFFIXES
+        if path.is_file()
+        and path.suffix.lower() in SUPPORTED_SUFFIXES
+        and path.name not in SKIP_FILENAMES
+        and not any(part.startswith(".") for part in path.relative_to(data_dir).parts)
     )
     documents: list[Document] = []
     empty_files: list[str] = []

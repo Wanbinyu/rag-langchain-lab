@@ -360,7 +360,11 @@ async function query(mode) {
       $('#answer-text').textContent = data.answer;
       renderAnswerReview(data.answer_review);
       const evidenceLabel = EVIDENCE_LABELS[data.evidence?.status] || '结果已返回';
-      $('#query-status').textContent = data.sync_report ? `${reportText(data.sync_report)} · ${evidenceLabel}` : `问答完成 · ${evidenceLabel}`;
+      const boundary = data.query_boundary;
+      const boundaryLabel = boundary && boundary.status === 'blocked'
+        ? `问题边界已拦截（${boundary.reason_code}）`
+        : evidenceLabel;
+      $('#query-status').textContent = data.sync_report ? `${reportText(data.sync_report)} · ${boundaryLabel}` : `问答完成 · ${boundaryLabel}`;
     } else {
       const evidenceLabel = EVIDENCE_LABELS[data.evidence?.status] || '结果已返回';
       $('#query-status').textContent = `检索完成 · ${evidenceLabel}；请检查下面的来源片段。`;

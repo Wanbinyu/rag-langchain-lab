@@ -11,6 +11,7 @@ from langchain_openai import OpenAIEmbeddings
 
 from .chains import answer_question, build_chat_model
 from .config import DEFAULT_LOCAL_EMBED_MODEL, Settings, project_settings
+from .glossary import configure_glossary
 from .indexing import IndexReport, index_status, open_store, sync_index
 from .retrieval import print_retrieval_diagnostics, retrieve, retrieve_report
 
@@ -150,6 +151,7 @@ def main(argv: Sequence[str] | None = None, settings: Settings | None = None) ->
 
     settings = settings or project_settings()
     load_dotenv(settings.root / ".env")
+    configure_glossary(settings.data_dir)
     args = parse_args(sys.argv[1:] if argv is None else argv)
 
     try:

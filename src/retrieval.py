@@ -12,6 +12,8 @@ from typing import Literal
 from langchain_chroma import Chroma
 from langchain_core.documents import Document
 
+from .glossary import active_glossary, expansion_enabled
+
 
 EvidenceStatus = Literal["sufficient", "review", "insufficient"]
 
@@ -27,195 +29,6 @@ _STOP_WORDS = {
     "it", "of", "on", "or", "the", "to", "what", "why", "with", "what's",
     "的", "了", "和", "是", "在", "对", "与", "为", "什么", "如何", "为什么", "什", "么",
 }
-
-# A small, domain-specific glossary helps lexical retrieval bridge Chinese
-# questions and English source titles. It is intentionally used for candidate
-# supplementation only; the original question is still sent to the Reranker.
-_QUERY_ALIAS_PAIRS: tuple[tuple[str, tuple[str, ...]], ...] = (
-    ("创业想法", ("startup ideas", "how to get startup ideas", "ideas for startups")),
-    ("创业方向", ("startup ideas", "startup direction", "startup potential")),
-    ("创业点子", ("startup ideas", "ideas for startups")),
-    ("无法规模化", ("do things that don't scale", "recruit users manually")),
-    ("不规模化", ("do things that don't scale", "recruit users manually")),
-    ("亲自服务", ("early users", "customer service", "do things that don't scale")),
-    ("联合创始人", ("cofounders", "pick good cofounders")),
-    ("用户真正想要", ("users want", "understand your users")),
-    ("少而精", ("a few users love you", "a lot ambivalent")),
-    ("让用户爱上", ("a few users love you", "surprisingly good customer service")),
-    ("财富", ("create wealth", "how to make wealth")),
-    ("尽快上线", ("launch fast", "launch and iterate")),
-    ("快速上线", ("launch fast", "launch and iterate")),
-    ("上线", ("launch fast", "launch and iterate")),
-    ("默认存活", ("default alive", "default dead")),
-    ("默认死亡", ("default alive", "default dead")),
-    ("烧钱", ("default alive", "default dead", "spend little")),
-    ("拉面", ("ramen profitable", "get ramen profitable")),
-    ("增长", ("startup growth", "weekly growth rate")),
-    ("衡量", ("you make what you measure", "measure progress")),
-    ("会议", ("maker's schedule", "manager's schedule", "meetings")),
-    ("创造者", ("maker's schedule", "manager's schedule", "deep work")),
-    ("连续时间", ("maker's schedule", "deep work", "continuous time")),
-    ("频繁打断", ("maker's schedule", "interruptions", "deep work")),
-    ("写作", ("write like you talk", "writing", "write simply")),
-    ("像说话一样", ("write like you talk", "spoken language")),
-    ("专家", ("expert", "how to be an expert", "how to be an expert in a changing world", "domain experts", "expertise")),
-    ("新手", ("noob", "beginner", "expert", "how to be an expert in a changing world")),
-    ("前沿", ("frontier", "great work")),
-    ("伟大的工作", ("great work", "do great work")),
-    ("好奇心", ("curiosity", "great work")),
-    ("天赋", ("ability", "interest", "effort")),
-    ("社会压力", ("social pressure", "social expectations", "prestige", "interest", "how to do great work", "keep your identity small")),
-    ("声望", ("prestige", "fame", "interest", "do what you love", "how to do what you love", "how to do great work")),
-    ("兴趣", ("interest", "do what you love", "how to do what you love", "how to do great work")),
-    ("竞争", ("competition", "competitors")),
-    ("产品迭代", ("product iteration", "launch and iterate", "launch fast", "evolving your idea", "understand your users", "startups in 13 sentences")),
-    ("用户反馈", ("user feedback", "understand your users")),
-    ("融资", ("fundraising", "funding", "default alive")),
-    # Abstract Chinese questions need a small amount of domain vocabulary
-    # before BM25 can match the English essay titles. These aliases are only
-    # candidate supplements; the original question remains available to the
-    # reranker and answer model.
-    ("创业成功", ("make something users want", "startup mistakes", "startups in 13 sentences")),
-    ("工作与生活平衡", ("work life balance", "how to do what you love", "great work")),
-    ("尽快融资", ("default alive", "default dead", "fundraising")),
-    ("控制开支", ("spend practically nothing", "ramen profitable", "low burn")),
-    ("正确的方向", ("startup growth", "make something users want", "measure progress")),
-    ("坚持", ("never give up", "right kind of stubborn", "determination")),
-    ("放弃", ("never give up", "right kind of stubborn", "determination")),
-    ("有机创业想法", ("organic startup ideas", "how to get startup ideas")),
-    ("用户数量", ("a few users love you", "a lot of users ambivalent", "startup growth")),
-    ("用户满意度", ("a few users love you", "users want", "do things that don't scale")),
-    ("早期用户", ("early users", "early customers", "user feedback")),
-    ("创业早期", ("before the startup", "startups in 13 sentences", "how to start a startup")),
-    ("写作清晰", ("write simply", "write like you talk")),
-    ("做到前沿", ("frontier", "great work", "learn")),
-    ("长期投入", ("great work", "long term", "interest")),
-    ("努力", ("how to work hard", "bus ticket theory of genius", "great work")),
-    ("Bus Ticket", ("bus ticket theory of genius", "how to work hard")),
-    ("时间管理", ("maker's schedule", "manager's schedule")),
-    ("大块连续时间", ("maker's schedule", "continuous time", "deep work")),
-    ("理解用户", ("understand your users", "users want", "startups in 13 sentences")),
-    ("核心要点", ("startups in 13 sentences", "startup principles")),
-    ("早期客户的反馈", ("do things that don't scale", "early users", "user feedback")),
-    ("不建议一开始就追求规模化", ("do things that don't scale", "scale")),
-    ("值得做成公司", ("organic startup ideas", "startup ideas", "company")),
-    ("失败", ("failure", "great work", "startups in 13 sentences")),
-    ("情绪影响决策", ("emotion", "judgment", "great work")),
-    ("迎合别人期望", ("prestige", "do what you love", "great work")),
-    ("最有价值", ("great work", "how to do what you love")),
-    ("保持天真", ("being a noob", "how to think for yourself", "naive")),
-    ("压力和不确定性", ("startups in 13 sentences", "great work", "uncertainty")),
-    ("竞争对手", ("competition", "competitors", "ideas for startups")),
-    ("技术", ("technology", "product", "design and research")),
-    ("哪个更重要", ("product", "technology", "design and research")),
-    ("有潜力", ("startup ideas", "frighteningly ambitious startup ideas", "great work")),
-    ("声望和兴趣", ("prestige", "interest", "great work")),
-    # Targeted English topics for the six explicit cross-language misses. The
-    # original Chinese question remains in every expanded query.
-    ("ideas are worthless", ("ideas are cheap", "startup ideas change", "execute and iterate", "startups in 13 sentences", "how to get startup ideas")),
-    ("声望和兴趣", ("prestige vs interest", "do what you love", "how to do what you love", "how to do great work")),
-    ("情绪影响决策", ("user data", "user feedback", "measure progress", "be careful what you measure", "startups in 13 sentences", "how to do great work")),
-    ("社会压力", ("social expectations", "prestige", "what you love", "how to do great work", "keep your identity small")),
-    ("专家和新手", ("how to be an expert in a changing world", "domain experts", "startup expertise", "beginner vs expert")),
-    ("好问题", ("the best essay", "great work", "questions")),
-    ("问题本身", ("the best essay", "questions")),
-    # Calibration-set rewordings: keep phrases specific enough to avoid noisy
-    # expansion on unrelated Chinese questions.
-    ("日常经历", ("how to get startup ideas", "organic startup ideas", "ideas for startups")),
-    ("值得做的产品", ("how to get startup ideas", "organic startup ideas", "startup ideas")),
-    ("第一批客户", ("do things that don't scale", "early users", "recruit users manually")),
-    ("少数客户", ("a few users love you", "startups in 13 sentences")),
-    ("default alive", ("default alive", "default dead")),
-    ("default dead", ("default alive", "default dead")),
-    ("现金跑道", ("default alive", "default dead", "runway")),
-    ("低成本运营", ("ramen profitable", "spend practically nothing", "low burn", "startups in 13 sentences")),
-    ("注册数字", ("startup growth", "measure progress", "vanity metrics", "users love you")),
-    ("真正使用产品", ("startup growth", "retention", "users love you", "measure progress")),
-    ("本能地退缩", ("frighteningly ambitious startup ideas", "ambitious startup ideas")),
-    ("产生新想法", ("putting ideas into words", "write like you talk", "writing")),
-    ("信任和关系", ("cofounders", "pick good cofounders", "the 18 mistakes that kill startups")),
-)
-
-# Multi-signal rewrite rules for the controlled retry path. A rule fires when
-# at least ``min_hits`` of its signal phrases appear in the question. Terms are
-# English retrieval aids only; they never enter the answer prompt.
-_REWRITE_TOPIC_RULES: tuple[tuple[tuple[str, ...], int, tuple[str, ...]], ...] = (
-    (
-        ("日常经历", "值得做的产品", "身边的缺口", "真实问题", "发现值得做"),
-        1,
-        ("how to get startup ideas", "organic startup ideas", "ideas for startups"),
-    ),
-    (
-        ("亲手", "第一批客户", "搭建产品", "不能规模化", "不规模化"),
-        1,
-        ("do things that don't scale", "early users", "recruit users manually"),
-    ),
-    (
-        ("少数客户", "狂热", "少量用户", "再逐步扩大", "口碑"),
-        1,
-        ("a few users love you", "startups in 13 sentences", "do things that don't scale"),
-    ),
-    (
-        ("default alive", "default dead", "现金跑道", "烧钱速度", "盈亏平衡"),
-        1,
-        ("default alive", "default dead", "runway"),
-    ),
-    (
-        ("写代码", "会议", "连续时间", "创造者", "深度工作"),
-        1,
-        ("maker's schedule", "manager's schedule", "meetings", "deep work"),
-    ),
-    (
-        ("用户反馈", "想法演进", "调整", "迭代"),
-        2,
-        ("startups in 13 sentences", "launch and iterate", "understand your users", "user feedback"),
-    ),
-    (
-        ("社会声望", "声望", "真正喜欢", "兴趣"),
-        2,
-        ("prestige", "how to do what you love", "how to do great work", "do what you love"),
-    ),
-    (
-        ("领域前沿", "前沿", "缺口", "伟大工作"),
-        2,
-        ("how to do great work", "frontier", "great work"),
-    ),
-    (
-        ("写作", "新想法", "记录想法", "产生新"),
-        2,
-        ("putting ideas into words", "write like you talk", "write simply"),
-    ),
-    (
-        ("低成本", "运营", "生存时间", "融资依赖"),
-        1,
-        ("ramen profitable", "spend practically nothing", "startups in 13 sentences", "low burn"),
-    ),
-    (
-        ("真正使用", "注册数字", "留存", "虚荣指标"),
-        1,
-        ("startup growth", "measure progress", "you make what you measure", "users love you"),
-    ),
-    (
-        ("联合创始人", "信任", "关系质量"),
-        1,
-        ("cofounders", "pick good cofounders", "the 18 mistakes that kill startups"),
-    ),
-    (
-        ("衡量指标", "错误的衡量", "指标", "优化"),
-        2,
-        ("you make what you measure", "measure progress", "startups in 13 sentences"),
-    ),
-    (
-        ("退缩", "害怕", "有野心", "本能"),
-        1,
-        ("frighteningly ambitious startup ideas", "ambitious startup ideas"),
-    ),
-    (
-        ("好奇心", "兴趣", "长期", "创造性"),
-        2,
-        ("how to do great work", "bus ticket theory of genius", "curiosity", "interest"),
-    ),
-)
 
 
 @dataclass(frozen=True)
@@ -295,8 +108,7 @@ def _bool_env(name: str, default: bool = False) -> bool:
 
 
 def _query_expansion_enabled() -> bool:
-    value = (os.getenv("QUERY_EXPANSION_ENABLED") or "1").strip().lower()
-    return value not in {"0", "false", "off", "no", "disabled"}
+    return expansion_enabled()
 
 
 def _query_aliases(question: str) -> list[str]:
@@ -304,17 +116,19 @@ def _query_aliases(question: str) -> list[str]:
         return []
     lower_question = question.lower()
     aliases: list[str] = []
-    for phrase, values in _QUERY_ALIAS_PAIRS:
+    for phrase, values in active_glossary().aliases:
         if phrase.lower() in lower_question:
             aliases.extend(values)
     return list(dict.fromkeys(aliases))
 
 
 def _rule_topic_terms(question: str) -> list[str]:
-    """Return English topic terms from multi-signal rewrite rules."""
+    """Return English topic terms from corpus rewrite rules, if a glossary is loaded."""
+    if not _query_expansion_enabled():
+        return []
     lower_question = question.lower()
     terms: list[str] = []
-    for signals, min_hits, values in _REWRITE_TOPIC_RULES:
+    for signals, min_hits, values in active_glossary().rewrite_rules:
         hits = sum(1 for signal in signals if signal.lower() in lower_question)
         if hits >= max(min_hits, 1):
             terms.extend(values)

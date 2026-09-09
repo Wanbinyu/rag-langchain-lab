@@ -16,6 +16,7 @@ from .chains import answer_question, build_chat_model
 from .cli import build_embeddings
 from .config import DEFAULT_LOCAL_EMBED_MODEL, Settings, project_settings
 from .evaluation import AnswerReview, assess_answer_structure, keyword_groups_for_question, run_evaluation
+from .glossary import configure_glossary
 from .guardrails import assess_query_boundary
 from .indexing import IndexReport, check_index_integrity, index_status, open_store, sync_index
 from .loaders import list_directories, load_documents_report
@@ -131,6 +132,13 @@ def _insufficient_answer() -> str:
 def _boundary_answer(reason_code: str) -> str:
     if reason_code == "template_generation":
         return "当前知识库不生成模板类内容；可以回答资料中明确讨论的概念和方法。"
+    if reason_code == "capability_execution":
+        return (
+            "资料可以说明产品能力或操作边界，但不能代替系统执行改写、部署、"
+            "恢复任务或查看用户数据。"
+        )
+    if reason_code == "live_status":
+        return "静态知识库不能回答当前运行状态、实时数量或“今年/今天”这类时效性问题。"
     return "当前问题超出知识库的回答范围。"
 
 
@@ -407,6 +415,7 @@ class RAGDashboardHandler(BaseHTTPRequestHandler):
 
 def run_server(settings: Settings, host: str = "127.0.0.1", port: int = 8765) -> None:
     load_dotenv(settings.root / ".env")
+    configure_glossary(settings.data_dir)
     server = ThreadingHTTPServer((host, port), RAGDashboardHandler)
     server.settings = settings  # type: ignore[attr-defined]
     print(f"RAG 控制台已启动: http://{host}:{port}")

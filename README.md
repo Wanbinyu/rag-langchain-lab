@@ -75,6 +75,23 @@
 
 首次完整答案运行没有 API 错误：9/9 非拒答满足四段结构，12/12 引用/拒答来源规则正确，且没有缺失或虚构引用。初始字面概念覆盖为 23/32；人工审阅确认其中 6 项只是同义表达未被规则识别，补充 sidecar 别名后对同一批答案确定性重评分为 29/32（90.63%）。剩余 3 项是真实内容遗漏，未通过改提示词或重生成掩盖。原始机器报告与后续 rubric 审计分别见 [`eval/reports/resume_fit_ai_answers_v1.json`](./eval/reports/resume_fit_ai_answers_v1.json) 和 [`eval/audits/resume_fit_ai_answers_v1_first_run.md`](./eval/audits/resume_fit_ai_answers_v1_first_run.md)。
 
+## 外部挑战集：MultiHop-RAG
+
+项目还提供一个隔离的 [MultiHop-RAG](https://github.com/yixuantt/MultiHop-RAG) 适配器。它固定使用上游 revision 和 SHA-256 校验，将完整 609 篇语料放入被 Git 忽略的 `_imports/`，再按 `comparison / inference / temporal / null` 四类各确定性抽取 25 题。索引位于独立的 `work/multihop-rag/`，不会污染主知识库。数据集采用 ODC-BY 1.0，使用时仍须遵守并标注上游许可。
+
+```powershell
+# 100 题 Top-5 检索与拒答评测；首次运行会下载约 12 MB 原始数据
+.\.venv\Scripts\python.exe examples\03_multihop_rag_eval.py --publish-summary
+
+# 同时生成答案（会产生约 75 次 Chat API 调用）
+.\.venv\Scripts\python.exe examples\03_multihop_rag_eval.py `
+  --with-answers --publish-summary
+```
+
+普通 `Recall@K` 只要求命中任一预期来源，容易高估多跳检索。因此适配器额外报告 `complete_evidence_hit_rate`（一题的全部证据来源都进入 Top-K）和 `mean_evidence_source_recall`。上游评测依赖文章标题、媒体和发布日期，适配器会把这些公开元数据重复到每个 chunk；答案侧另用双语 Yes/No 结论或实体包含关系计算确定性代理分数，避免把标准答案 `no` 与中文回答“没有”机械判错。该代理仍不等于人工语义评审。这 100 题是可公开查看的固定外部样本，首次运行可作为外部基线；一旦根据失败题调参，就必须将它标记为开发集，不能继续称为盲测。
+
+2026-09-07 的首次修正版 Top-5 基线使用完整 609 篇、32,272 个 chunk；75 个可回答题中，任一证据命中 72 个，全部证据命中 33 个，平均证据来源召回 71.56%，MRR 为 0.9056。25 个 null 问题正确拒答 24 个，综合证据决策为 97/100。带答案运行进行了 74 次 Chat API 调用且无错误；双语确定性代理为 75/100（comparison 12/25、inference 24/25、temporal 15/25、null 24/25），引用规则为 97/100，回答结构为 74/74。严格字面答案包含率仅 26/75，因跨语言表述不应单独当成正确率。可提交聚合结果见 [`eval/reports/multihop_rag_100_v1.json`](./eval/reports/multihop_rag_100_v1.json) 与 [`eval/reports/multihop_rag_100_answers_v1.json`](./eval/reports/multihop_rag_100_answers_v1.json)。
+
 ## 快速开始
 
 要求 Python 3.11+。以下命令以 PowerShell 为例；macOS/Linux 将激活命令替换为 `source .venv/bin/activate`。
@@ -143,11 +160,16 @@ API Key 只应放在本地 `.env`；该文件已被 Git 忽略。Embedding 默�
 # Resume Fit AI 小型回答/引用/拒答审计（会产生 API 调用费用）
 .\.venv\Scripts\python.exe examples\02_resume_fit_ai_eval.py `
   --dataset answers --mode rerank --with-answers --publish-summary
+
+# MultiHop-RAG 独立 100 题 Top-5 外部挑战集
+.\.venv\Scripts\python.exe examples\03_multihop_rag_eval.py --publish-summary
 ```
 
 若使用仓库内的 Graham 题集，需要自行准备有权使用的对应文章，并保持 `source` 文件名与题集一致。评测报告会写入本地 `eval/results/`，该目录默认不提交。
 
 二次检索默认使用规则改写（`RETRIEVAL_REWRITE_MODE=rule`）：只在证据为 `insufficient` 且分数未低至 hopeless 时触发；普通 `review` 不重试，以控制延迟。所有阈值都应针对自己的语料重新校准，不应把 Reranker 分数当作概率。
+
+领域词表不再写进检索代码。默认链路没有内置中英别名；只有当前知识库目录存在 `retrieval_glossary.json`，或通过 `QUERY_GLOSSARY_PATH` 显式指定时，才会做术语扩展。Graham 题集对应的词表在 [`eval/glossaries/graham.json`](./eval/glossaries/graham.json)。问题边界会拦截模板生成、把文档里的能力当成“现在替你执行”，以及向静态语料索取实时数量或“今年/今天”状态。
 
 ## 自动测试
 
@@ -166,6 +188,7 @@ python -m pytest -q
 src/
   loaders.py       文档扫描、读取与哈希
   indexing.py      切分、稳定 chunk ID、Chroma 增量同步
+  glossary.py      语料侧检索词表加载
   retrieval.py     混合召回、重排、证据分级与重试
   chains.py        带证据边界的回答生成
   guardrails.py    问题边界与拒答判断
@@ -177,6 +200,8 @@ tests/             不调用外部 API 的自动测试
 eval/              评测题、评分配置与诊断工具
 examples/resume_fit_ai/
                    可公开的第二领域知识包与复现实验说明
+examples/03_multihop_rag_eval.py
+                   隔离下载、抽样并运行 MultiHop-RAG 外部挑战集
 scripts/           数据导入、审计与失败分析脚本
 ```
 

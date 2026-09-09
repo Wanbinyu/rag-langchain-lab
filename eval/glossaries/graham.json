@@ -1,0 +1,971 @@
+{
+  "schema_version": 1,
+  "corpus": "graham-essays",
+  "note": "Corpus-side lexical aids for Chinese questions over English Paul Graham essays. Used only to supplement retrieval candidates and controlled rewrite; terms never enter the answer prompt.",
+  "aliases": [
+    {
+      "phrase": "创业想法",
+      "terms": [
+        "startup ideas",
+        "how to get startup ideas",
+        "ideas for startups"
+      ]
+    },
+    {
+      "phrase": "创业方向",
+      "terms": [
+        "startup ideas",
+        "startup direction",
+        "startup potential"
+      ]
+    },
+    {
+      "phrase": "创业点子",
+      "terms": [
+        "startup ideas",
+        "ideas for startups"
+      ]
+    },
+    {
+      "phrase": "无法规模化",
+      "terms": [
+        "do things that don't scale",
+        "recruit users manually"
+      ]
+    },
+    {
+      "phrase": "不规模化",
+      "terms": [
+        "do things that don't scale",
+        "recruit users manually"
+      ]
+    },
+    {
+      "phrase": "亲自服务",
+      "terms": [
+        "early users",
+        "customer service",
+        "do things that don't scale"
+      ]
+    },
+    {
+      "phrase": "联合创始人",
+      "terms": [
+        "cofounders",
+        "pick good cofounders"
+      ]
+    },
+    {
+      "phrase": "用户真正想要",
+      "terms": [
+        "users want",
+        "understand your users"
+      ]
+    },
+    {
+      "phrase": "少而精",
+      "terms": [
+        "a few users love you",
+        "a lot ambivalent"
+      ]
+    },
+    {
+      "phrase": "让用户爱上",
+      "terms": [
+        "a few users love you",
+        "surprisingly good customer service"
+      ]
+    },
+    {
+      "phrase": "财富",
+      "terms": [
+        "create wealth",
+        "how to make wealth"
+      ]
+    },
+    {
+      "phrase": "尽快上线",
+      "terms": [
+        "launch fast",
+        "launch and iterate"
+      ]
+    },
+    {
+      "phrase": "快速上线",
+      "terms": [
+        "launch fast",
+        "launch and iterate"
+      ]
+    },
+    {
+      "phrase": "上线",
+      "terms": [
+        "launch fast",
+        "launch and iterate"
+      ]
+    },
+    {
+      "phrase": "默认存活",
+      "terms": [
+        "default alive",
+        "default dead"
+      ]
+    },
+    {
+      "phrase": "默认死亡",
+      "terms": [
+        "default alive",
+        "default dead"
+      ]
+    },
+    {
+      "phrase": "烧钱",
+      "terms": [
+        "default alive",
+        "default dead",
+        "spend little"
+      ]
+    },
+    {
+      "phrase": "拉面",
+      "terms": [
+        "ramen profitable",
+        "get ramen profitable"
+      ]
+    },
+    {
+      "phrase": "增长",
+      "terms": [
+        "startup growth",
+        "weekly growth rate"
+      ]
+    },
+    {
+      "phrase": "衡量",
+      "terms": [
+        "you make what you measure",
+        "measure progress"
+      ]
+    },
+    {
+      "phrase": "会议",
+      "terms": [
+        "maker's schedule",
+        "manager's schedule",
+        "meetings"
+      ]
+    },
+    {
+      "phrase": "创造者",
+      "terms": [
+        "maker's schedule",
+        "manager's schedule",
+        "deep work"
+      ]
+    },
+    {
+      "phrase": "连续时间",
+      "terms": [
+        "maker's schedule",
+        "deep work",
+        "continuous time"
+      ]
+    },
+    {
+      "phrase": "频繁打断",
+      "terms": [
+        "maker's schedule",
+        "interruptions",
+        "deep work"
+      ]
+    },
+    {
+      "phrase": "写作",
+      "terms": [
+        "write like you talk",
+        "writing",
+        "write simply"
+      ]
+    },
+    {
+      "phrase": "像说话一样",
+      "terms": [
+        "write like you talk",
+        "spoken language"
+      ]
+    },
+    {
+      "phrase": "专家",
+      "terms": [
+        "expert",
+        "how to be an expert",
+        "how to be an expert in a changing world",
+        "domain experts",
+        "expertise"
+      ]
+    },
+    {
+      "phrase": "新手",
+      "terms": [
+        "noob",
+        "beginner",
+        "expert",
+        "how to be an expert in a changing world"
+      ]
+    },
+    {
+      "phrase": "前沿",
+      "terms": [
+        "frontier",
+        "great work"
+      ]
+    },
+    {
+      "phrase": "伟大的工作",
+      "terms": [
+        "great work",
+        "do great work"
+      ]
+    },
+    {
+      "phrase": "好奇心",
+      "terms": [
+        "curiosity",
+        "great work"
+      ]
+    },
+    {
+      "phrase": "天赋",
+      "terms": [
+        "ability",
+        "interest",
+        "effort"
+      ]
+    },
+    {
+      "phrase": "社会压力",
+      "terms": [
+        "social pressure",
+        "social expectations",
+        "prestige",
+        "interest",
+        "how to do great work",
+        "keep your identity small"
+      ]
+    },
+    {
+      "phrase": "声望",
+      "terms": [
+        "prestige",
+        "fame",
+        "interest",
+        "do what you love",
+        "how to do what you love",
+        "how to do great work"
+      ]
+    },
+    {
+      "phrase": "兴趣",
+      "terms": [
+        "interest",
+        "do what you love",
+        "how to do what you love",
+        "how to do great work"
+      ]
+    },
+    {
+      "phrase": "竞争",
+      "terms": [
+        "competition",
+        "competitors"
+      ]
+    },
+    {
+      "phrase": "产品迭代",
+      "terms": [
+        "product iteration",
+        "launch and iterate",
+        "launch fast",
+        "evolving your idea",
+        "understand your users",
+        "startups in 13 sentences"
+      ]
+    },
+    {
+      "phrase": "用户反馈",
+      "terms": [
+        "user feedback",
+        "understand your users"
+      ]
+    },
+    {
+      "phrase": "融资",
+      "terms": [
+        "fundraising",
+        "funding",
+        "default alive"
+      ]
+    },
+    {
+      "phrase": "创业成功",
+      "terms": [
+        "make something users want",
+        "startup mistakes",
+        "startups in 13 sentences"
+      ]
+    },
+    {
+      "phrase": "工作与生活平衡",
+      "terms": [
+        "work life balance",
+        "how to do what you love",
+        "great work"
+      ]
+    },
+    {
+      "phrase": "尽快融资",
+      "terms": [
+        "default alive",
+        "default dead",
+        "fundraising"
+      ]
+    },
+    {
+      "phrase": "控制开支",
+      "terms": [
+        "spend practically nothing",
+        "ramen profitable",
+        "low burn"
+      ]
+    },
+    {
+      "phrase": "正确的方向",
+      "terms": [
+        "startup growth",
+        "make something users want",
+        "measure progress"
+      ]
+    },
+    {
+      "phrase": "坚持",
+      "terms": [
+        "never give up",
+        "right kind of stubborn",
+        "determination"
+      ]
+    },
+    {
+      "phrase": "放弃",
+      "terms": [
+        "never give up",
+        "right kind of stubborn",
+        "determination"
+      ]
+    },
+    {
+      "phrase": "有机创业想法",
+      "terms": [
+        "organic startup ideas",
+        "how to get startup ideas"
+      ]
+    },
+    {
+      "phrase": "用户数量",
+      "terms": [
+        "a few users love you",
+        "a lot of users ambivalent",
+        "startup growth"
+      ]
+    },
+    {
+      "phrase": "用户满意度",
+      "terms": [
+        "a few users love you",
+        "users want",
+        "do things that don't scale"
+      ]
+    },
+    {
+      "phrase": "早期用户",
+      "terms": [
+        "early users",
+        "early customers",
+        "user feedback"
+      ]
+    },
+    {
+      "phrase": "创业早期",
+      "terms": [
+        "before the startup",
+        "startups in 13 sentences",
+        "how to start a startup"
+      ]
+    },
+    {
+      "phrase": "写作清晰",
+      "terms": [
+        "write simply",
+        "write like you talk"
+      ]
+    },
+    {
+      "phrase": "做到前沿",
+      "terms": [
+        "frontier",
+        "great work",
+        "learn"
+      ]
+    },
+    {
+      "phrase": "长期投入",
+      "terms": [
+        "great work",
+        "long term",
+        "interest"
+      ]
+    },
+    {
+      "phrase": "努力",
+      "terms": [
+        "how to work hard",
+        "bus ticket theory of genius",
+        "great work"
+      ]
+    },
+    {
+      "phrase": "Bus Ticket",
+      "terms": [
+        "bus ticket theory of genius",
+        "how to work hard"
+      ]
+    },
+    {
+      "phrase": "时间管理",
+      "terms": [
+        "maker's schedule",
+        "manager's schedule"
+      ]
+    },
+    {
+      "phrase": "大块连续时间",
+      "terms": [
+        "maker's schedule",
+        "continuous time",
+        "deep work"
+      ]
+    },
+    {
+      "phrase": "理解用户",
+      "terms": [
+        "understand your users",
+        "users want",
+        "startups in 13 sentences"
+      ]
+    },
+    {
+      "phrase": "核心要点",
+      "terms": [
+        "startups in 13 sentences",
+        "startup principles"
+      ]
+    },
+    {
+      "phrase": "早期客户的反馈",
+      "terms": [
+        "do things that don't scale",
+        "early users",
+        "user feedback"
+      ]
+    },
+    {
+      "phrase": "不建议一开始就追求规模化",
+      "terms": [
+        "do things that don't scale",
+        "scale"
+      ]
+    },
+    {
+      "phrase": "值得做成公司",
+      "terms": [
+        "organic startup ideas",
+        "startup ideas",
+        "company"
+      ]
+    },
+    {
+      "phrase": "失败",
+      "terms": [
+        "failure",
+        "great work",
+        "startups in 13 sentences"
+      ]
+    },
+    {
+      "phrase": "情绪影响决策",
+      "terms": [
+        "emotion",
+        "judgment",
+        "great work"
+      ]
+    },
+    {
+      "phrase": "迎合别人期望",
+      "terms": [
+        "prestige",
+        "do what you love",
+        "great work"
+      ]
+    },
+    {
+      "phrase": "最有价值",
+      "terms": [
+        "great work",
+        "how to do what you love"
+      ]
+    },
+    {
+      "phrase": "保持天真",
+      "terms": [
+        "being a noob",
+        "how to think for yourself",
+        "naive"
+      ]
+    },
+    {
+      "phrase": "压力和不确定性",
+      "terms": [
+        "startups in 13 sentences",
+        "great work",
+        "uncertainty"
+      ]
+    },
+    {
+      "phrase": "竞争对手",
+      "terms": [
+        "competition",
+        "competitors",
+        "ideas for startups"
+      ]
+    },
+    {
+      "phrase": "技术",
+      "terms": [
+        "technology",
+        "product",
+        "design and research"
+      ]
+    },
+    {
+      "phrase": "哪个更重要",
+      "terms": [
+        "product",
+        "technology",
+        "design and research"
+      ]
+    },
+    {
+      "phrase": "有潜力",
+      "terms": [
+        "startup ideas",
+        "frighteningly ambitious startup ideas",
+        "great work"
+      ]
+    },
+    {
+      "phrase": "声望和兴趣",
+      "terms": [
+        "prestige",
+        "interest",
+        "great work"
+      ]
+    },
+    {
+      "phrase": "ideas are worthless",
+      "terms": [
+        "ideas are cheap",
+        "startup ideas change",
+        "execute and iterate",
+        "startups in 13 sentences",
+        "how to get startup ideas"
+      ]
+    },
+    {
+      "phrase": "声望和兴趣",
+      "terms": [
+        "prestige vs interest",
+        "do what you love",
+        "how to do what you love",
+        "how to do great work"
+      ]
+    },
+    {
+      "phrase": "情绪影响决策",
+      "terms": [
+        "user data",
+        "user feedback",
+        "measure progress",
+        "be careful what you measure",
+        "startups in 13 sentences",
+        "how to do great work"
+      ]
+    },
+    {
+      "phrase": "社会压力",
+      "terms": [
+        "social expectations",
+        "prestige",
+        "what you love",
+        "how to do great work",
+        "keep your identity small"
+      ]
+    },
+    {
+      "phrase": "专家和新手",
+      "terms": [
+        "how to be an expert in a changing world",
+        "domain experts",
+        "startup expertise",
+        "beginner vs expert"
+      ]
+    },
+    {
+      "phrase": "好问题",
+      "terms": [
+        "the best essay",
+        "great work",
+        "questions"
+      ]
+    },
+    {
+      "phrase": "问题本身",
+      "terms": [
+        "the best essay",
+        "questions"
+      ]
+    },
+    {
+      "phrase": "日常经历",
+      "terms": [
+        "how to get startup ideas",
+        "organic startup ideas",
+        "ideas for startups"
+      ]
+    },
+    {
+      "phrase": "值得做的产品",
+      "terms": [
+        "how to get startup ideas",
+        "organic startup ideas",
+        "startup ideas"
+      ]
+    },
+    {
+      "phrase": "第一批客户",
+      "terms": [
+        "do things that don't scale",
+        "early users",
+        "recruit users manually"
+      ]
+    },
+    {
+      "phrase": "少数客户",
+      "terms": [
+        "a few users love you",
+        "startups in 13 sentences"
+      ]
+    },
+    {
+      "phrase": "default alive",
+      "terms": [
+        "default alive",
+        "default dead"
+      ]
+    },
+    {
+      "phrase": "default dead",
+      "terms": [
+        "default alive",
+        "default dead"
+      ]
+    },
+    {
+      "phrase": "现金跑道",
+      "terms": [
+        "default alive",
+        "default dead",
+        "runway"
+      ]
+    },
+    {
+      "phrase": "低成本运营",
+      "terms": [
+        "ramen profitable",
+        "spend practically nothing",
+        "low burn",
+        "startups in 13 sentences"
+      ]
+    },
+    {
+      "phrase": "注册数字",
+      "terms": [
+        "startup growth",
+        "measure progress",
+        "vanity metrics",
+        "users love you"
+      ]
+    },
+    {
+      "phrase": "真正使用产品",
+      "terms": [
+        "startup growth",
+        "retention",
+        "users love you",
+        "measure progress"
+      ]
+    },
+    {
+      "phrase": "本能地退缩",
+      "terms": [
+        "frighteningly ambitious startup ideas",
+        "ambitious startup ideas"
+      ]
+    },
+    {
+      "phrase": "产生新想法",
+      "terms": [
+        "putting ideas into words",
+        "write like you talk",
+        "writing"
+      ]
+    },
+    {
+      "phrase": "信任和关系",
+      "terms": [
+        "cofounders",
+        "pick good cofounders",
+        "the 18 mistakes that kill startups"
+      ]
+    }
+  ],
+  "rewrite_rules": [
+    {
+      "signals": [
+        "日常经历",
+        "值得做的产品",
+        "身边的缺口",
+        "真实问题",
+        "发现值得做"
+      ],
+      "min_hits": 1,
+      "terms": [
+        "how to get startup ideas",
+        "organic startup ideas",
+        "ideas for startups"
+      ]
+    },
+    {
+      "signals": [
+        "亲手",
+        "第一批客户",
+        "搭建产品",
+        "不能规模化",
+        "不规模化"
+      ],
+      "min_hits": 1,
+      "terms": [
+        "do things that don't scale",
+        "early users",
+        "recruit users manually"
+      ]
+    },
+    {
+      "signals": [
+        "少数客户",
+        "狂热",
+        "少量用户",
+        "再逐步扩大",
+        "口碑"
+      ],
+      "min_hits": 1,
+      "terms": [
+        "a few users love you",
+        "startups in 13 sentences",
+        "do things that don't scale"
+      ]
+    },
+    {
+      "signals": [
+        "default alive",
+        "default dead",
+        "现金跑道",
+        "烧钱速度",
+        "盈亏平衡"
+      ],
+      "min_hits": 1,
+      "terms": [
+        "default alive",
+        "default dead",
+        "runway"
+      ]
+    },
+    {
+      "signals": [
+        "写代码",
+        "会议",
+        "连续时间",
+        "创造者",
+        "深度工作"
+      ],
+      "min_hits": 1,
+      "terms": [
+        "maker's schedule",
+        "manager's schedule",
+        "meetings",
+        "deep work"
+      ]
+    },
+    {
+      "signals": [
+        "用户反馈",
+        "想法演进",
+        "调整",
+        "迭代"
+      ],
+      "min_hits": 2,
+      "terms": [
+        "startups in 13 sentences",
+        "launch and iterate",
+        "understand your users",
+        "user feedback"
+      ]
+    },
+    {
+      "signals": [
+        "社会声望",
+        "声望",
+        "真正喜欢",
+        "兴趣"
+      ],
+      "min_hits": 2,
+      "terms": [
+        "prestige",
+        "how to do what you love",
+        "how to do great work",
+        "do what you love"
+      ]
+    },
+    {
+      "signals": [
+        "领域前沿",
+        "前沿",
+        "缺口",
+        "伟大工作"
+      ],
+      "min_hits": 2,
+      "terms": [
+        "how to do great work",
+        "frontier",
+        "great work"
+      ]
+    },
+    {
+      "signals": [
+        "写作",
+        "新想法",
+        "记录想法",
+        "产生新"
+      ],
+      "min_hits": 2,
+      "terms": [
+        "putting ideas into words",
+        "write like you talk",
+        "write simply"
+      ]
+    },
+    {
+      "signals": [
+        "低成本",
+        "运营",
+        "生存时间",
+        "融资依赖"
+      ],
+      "min_hits": 1,
+      "terms": [
+        "ramen profitable",
+        "spend practically nothing",
+        "startups in 13 sentences",
+        "low burn"
+      ]
+    },
+    {
+      "signals": [
+        "真正使用",
+        "注册数字",
+        "留存",
+        "虚荣指标"
+      ],
+      "min_hits": 1,
+      "terms": [
+        "startup growth",
+        "measure progress",
+        "you make what you measure",
+        "users love you"
+      ]
+    },
+    {
+      "signals": [
+        "联合创始人",
+        "信任",
+        "关系质量"
+      ],
+      "min_hits": 1,
+      "terms": [
+        "cofounders",
+        "pick good cofounders",
+        "the 18 mistakes that kill startups"
+      ]
+    },
+    {
+      "signals": [
+        "衡量指标",
+        "错误的衡量",
+        "指标",
+        "优化"
+      ],
+      "min_hits": 2,
+      "terms": [
+        "you make what you measure",
+        "measure progress",
+        "startups in 13 sentences"
+      ]
+    },
+    {
+      "signals": [
+        "退缩",
+        "害怕",
+        "有野心",
+        "本能"
+      ],
+      "min_hits": 1,
+      "terms": [
+        "frighteningly ambitious startup ideas",
+        "ambitious startup ideas"
+      ]
+    },
+    {
+      "signals": [
+        "好奇心",
+        "兴趣",
+        "长期",
+        "创造性"
+      ],
+      "min_hits": 2,
+      "terms": [
+        "how to do great work",
+        "bus ticket theory of genius",
+        "curiosity",
+        "interest"
+      ]
+    }
+  ]
+}
