@@ -44,7 +44,10 @@ def _document_title(path: Path, text: str) -> str:
 
 def read_text_file(path: Path) -> str:
     """读取常见中英文文本编码，无法识别时保留可读内容。"""
-    raw = path.read_bytes()
+    return _decode_text(path.read_bytes())
+
+
+def _decode_text(raw: bytes) -> str:
     for encoding in ("utf-8-sig", "utf-8", "gbk", "gb18030"):
         try:
             return raw.decode(encoding)
@@ -84,7 +87,7 @@ def load_documents_report(data_dir: Path) -> tuple[list[Document], DataIntegrity
         source = path.relative_to(data_dir).as_posix()
         try:
             raw = path.read_bytes()
-            text = read_text_file(path)
+            text = _decode_text(raw)
         except OSError:
             unreadable_files.append(source)
             continue

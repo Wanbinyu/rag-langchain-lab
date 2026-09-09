@@ -12,12 +12,11 @@ from urllib.parse import parse_qs, urlsplit
 
 from dotenv import load_dotenv
 
-from .chains import answer_question, build_chat_model
 from .cli import build_embeddings
 from .config import DEFAULT_LOCAL_EMBED_MODEL, Settings, project_settings
 from .evaluation import AnswerReview, assess_answer_structure, keyword_groups_for_question, run_evaluation
 from .glossary import configure_glossary
-from .guardrails import assess_query_boundary
+from .service import guarded_answer
 from .indexing import IndexReport, check_index_integrity, index_status, open_store, sync_index
 from .loaders import list_directories, load_documents_report
 from .retrieval import RetrievalReport, RetrievalResult, retrieve_report
@@ -120,26 +119,6 @@ def _retrieval_as_dict(report: RetrievalReport) -> dict[str, object]:
             for rank, result in enumerate(report.context_results, start=1)
         ],
     }
-
-
-def _insufficient_answer() -> str:
-    return (
-        "根据当前召回到的资料，证据不足，暂不生成可靠答案。"
-        "请换一种问法、补充关键词，或同步更多知识库文档。"
-    )
-
-
-def _boundary_answer(reason_code: str) -> str:
-    if reason_code == "template_generation":
-        return "当前知识库不生成模板类内容；可以回答资料中明确讨论的概念和方法。"
-    if reason_code == "capability_execution":
-        return (
-            "资料可以说明产品能力或操作边界，但不能代替系统执行改写、部署、"
-            "恢复任务或查看用户数据。"
-        )
-    if reason_code == "live_status":
-        return "静态知识库不能回答当前运行状态、实时数量或“今年/今天”这类时效性问题。"
-    return "当前问题超出知识库的回答范围。"
 
 
 class RAGDashboardHandler(BaseHTTPRequestHandler):
@@ -373,23 +352,13 @@ class RAGDashboardHandler(BaseHTTPRequestHandler):
                     retrieval = retrieve_report(
                         open_store(self.settings, build_embeddings()), question, top_k
                     )
-                    boundary = assess_query_boundary(question)
-                    if boundary.blocked:
-                        answer, answer_ms = _boundary_answer(boundary.reason_code), 0.0
-                    elif retrieval.evidence.status == "insufficient":
-                        answer, answer_ms = _insufficient_answer(), 0.0
-                    else:
-                        answer, answer_ms = answer_question(
-                            build_chat_model(),
-                            question,
-                            retrieval.context_results or retrieval.results,
-                        )
-                    keyword_groups = keyword_groups_for_question(self.settings.root, question)
-                    answer_review = assess_answer_structure(
-                        keyword_groups,
-                        answer,
-                        retrieval.evidence.status,
-                    )
+                # The retrieved documents form a snapshot; network generation does not
+                # need the lock that protects indexing and retrieval.
+                answer, answer_ms, boundary = guarded_answer(question, retrieval)
+                keyword_groups = keyword_groups_for_question(self.settings.root, question)
+                answer_review = assess_answer_structure(
+                    keyword_groups, answer, retrieval.evidence.status,
+                )
                 response = {
                     "question": question,
                     "answer": answer,

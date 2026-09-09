@@ -4,8 +4,11 @@ import hashlib
 import math
 import os
 import re
+import sqlite3
 import threading
 import time
+from collections import Counter, defaultdict
+from pathlib import Path
 from dataclasses import dataclass, field, replace
 from typing import Literal
 
@@ -21,8 +24,9 @@ _RERANKER_LOCK = threading.Lock()
 _RERANKER_CACHE: dict[str, object] = {}
 _RERANKER_ERRORS: dict[str, str] = {}
 _LEXICAL_CACHE_LOCK = threading.Lock()
-_LEXICAL_CACHE: dict[str, tuple[int, list[tuple[str, dict[str, object]]]]] = {}
-_BM25_CACHE: dict[str, tuple[int, "_BM25Index"]] = {}
+_LEXICAL_CACHE: dict[str, tuple[object, list[tuple[str, dict[str, object]]]]] = {}
+_BM25_CACHE: dict[str, tuple[object, "_BM25Index"]] = {}
+_DATABASE_VERSIONS: dict[str, sqlite3.Connection] = {}
 _TOKEN_RE = re.compile(r"[a-z0-9]+|[\u4e00-\u9fff]+", re.IGNORECASE)
 _STOP_WORDS = {
     "a", "an", "and", "are", "be", "by", "for", "from", "how", "in", "is",
@@ -77,6 +81,8 @@ class _BM25Index:
     tokenized_documents: list[list[str]]
     document_frequency: dict[str, int]
     average_document_length: float
+    postings: dict[str, dict[int, int]] = field(default_factory=dict)
+    metadata_postings: dict[str, set[int]] = field(default_factory=dict)
 
 
 def _float_env(name: str, default: float) -> float:
@@ -288,7 +294,7 @@ def _sigmoid(value: float) -> float:
     return 1.0 / (1.0 + math.exp(-clipped))
 
 
-_RERANK_PAIR_CACHE: dict[tuple[str, str], float] = {}
+_RERANK_PAIR_CACHE: dict[tuple[str, str, str], float] = {}
 _RERANK_PAIR_CACHE_LOCK = threading.Lock()
 _RERANK_PAIR_CACHE_MAX = 4096
 
@@ -332,7 +338,7 @@ def _rerank(
                 for result in results
             ]
             q_key = _question_cache_key(question)
-            pair_keys = [(q_key, _doc_cache_key(doc)) for doc in documents]
+            pair_keys = [(model_name, q_key, _doc_cache_key(doc)) for doc in documents]
             cached_scores: list[float | None] = [None] * len(documents)
             missing_indices: list[int] = []
             if _bool_env("RERANK_PAIR_CACHE_ENABLED", True):
@@ -417,15 +423,45 @@ def clear_lexical_cache() -> None:
     with _LEXICAL_CACHE_LOCK:
         _LEXICAL_CACHE.clear()
         _BM25_CACHE.clear()
+        for connection in _DATABASE_VERSIONS.values():
+            connection.close()
+        _DATABASE_VERSIONS.clear()
+
+
+def _corpus_cache_identity(store: Chroma) -> tuple[str, object]:
+    collection = getattr(store, "_collection", None)
+    client = getattr(store, "_client", None)
+    settings = client.get_settings() if client is not None else None
+    directory = settings.persist_directory if settings is not None and settings.is_persistent else None
+    collection_id = getattr(collection, "id", None)
+    if not directory or not collection_id:
+        # Test doubles and non-persistent stores must not share snapshots by name.
+        return str(id(store)), object()
+    root = Path(directory).resolve()
+    database = root / "chroma.sqlite3"
+    with _LEXICAL_CACHE_LOCK:
+        connection = _DATABASE_VERSIONS.get(str(database))
+        if connection is None:
+            # data_version detects commits even when row counts and filesystem
+            # timestamps do not change (notably on Windows). Keep the observer
+            # connection open: version numbers are local to each connection.
+            if len(_DATABASE_VERSIONS) >= 16:
+                for observer in _DATABASE_VERSIONS.values():
+                    observer.close()
+                _DATABASE_VERSIONS.clear()
+                _LEXICAL_CACHE.clear()
+                _BM25_CACHE.clear()
+            connection = sqlite3.connect(
+                database.as_uri() + "?mode=ro", uri=True, check_same_thread=False,
+            )
+            _DATABASE_VERSIONS[str(database)] = connection
+        version = connection.execute("PRAGMA data_version").fetchone()[0]
+    return f"{root}:{collection_id}", (collection.count(), version)
+
 
 
 def _lexical_corpus(store: Chroma) -> list[tuple[str, dict[str, object]]]:
-    collection = getattr(store, "_collection", None)
-    collection_key = str(getattr(collection, "name", id(store)))
-    try:
-        count = int(collection.count()) if collection is not None else -1
-    except Exception:  # pragma: no cover - depends on Chroma backend
-        count = -1
+    collection_key, count = _corpus_cache_identity(store)
     with _LEXICAL_CACHE_LOCK:
         cached = _LEXICAL_CACHE.get(collection_key)
         if cached and cached[0] == count:
@@ -488,12 +524,7 @@ def _heuristic_lexical_candidates(store: Chroma, question: str, limit: int = 6) 
 
 
 def _bm25_index(store: Chroma) -> _BM25Index:
-    collection = getattr(store, "_collection", None)
-    collection_key = str(getattr(collection, "name", id(store)))
-    try:
-        count = int(collection.count()) if collection is not None else -1
-    except Exception:  # pragma: no cover - depends on Chroma backend
-        count = -1
+    collection_key, count = _corpus_cache_identity(store)
     with _LEXICAL_CACHE_LOCK:
         cached = _BM25_CACHE.get(collection_key)
         if cached and cached[0] == count:
@@ -502,15 +533,23 @@ def _bm25_index(store: Chroma) -> _BM25Index:
     corpus = _lexical_corpus(store)
     tokenized_documents: list[list[str]] = []
     document_frequency: dict[str, int] = {}
-    for content, metadata in corpus:
+    postings: dict[str, dict[int, int]] = defaultdict(dict)
+    metadata_postings: dict[str, set[int]] = defaultdict(set)
+    for position, (content, metadata) in enumerate(corpus):
         # Keep the BM25 body score about the chunk itself. Repeating the same
         # title/path tokens in every chunk makes short heading-only chunks
         # look more relevant than the paragraphs that contain the answer.
         # Metadata is added separately as a bounded title bonus below.
         tokens = _token_list(content)
         tokenized_documents.append(tokens)
-        for term in set(tokens):
+        for term, frequency in Counter(tokens).items():
             document_frequency[term] = document_frequency.get(term, 0) + 1
+            postings[term][position] = frequency
+        metadata_terms = set(_token_list(" ".join(
+            str(metadata.get(key, "")) for key in ("title", "source", "directory", "filename")
+        )))
+        for term in metadata_terms:
+            metadata_postings[term].add(position)
     average_length = (
         sum(len(tokens) for tokens in tokenized_documents) / len(tokenized_documents)
         if tokenized_documents
@@ -521,6 +560,8 @@ def _bm25_index(store: Chroma) -> _BM25Index:
         tokenized_documents=tokenized_documents,
         document_frequency=document_frequency,
         average_document_length=max(average_length, 1.0),
+        postings=dict(postings),
+        metadata_postings=dict(metadata_postings),
     )
     with _LEXICAL_CACHE_LOCK:
         _BM25_CACHE[collection_key] = (count, index)
@@ -541,12 +582,19 @@ def _bm25_candidates(store: Chroma, question: str, limit: int = 6) -> list[Retri
     title_boost = max(_float_env("BM25_TITLE_BOOST", 0.2), 0.0)
     total_documents = len(index.documents)
     scored: list[tuple[float, RetrievalResult]] = []
-    for position, (content, metadata) in enumerate(index.documents):
+    positions: set[int] = set()
+    for term in query_terms:
+        positions.update(index.postings.get(term, {}))
+        if title_boost:
+            positions.update(index.metadata_postings.get(term, set()))
+    for position in sorted(positions):
+        content, metadata = index.documents[position]
         tokens = index.tokenized_documents[position]
-        frequencies: dict[str, int] = {}
-        for token in tokens:
-            if token in query_terms:
-                frequencies[token] = frequencies.get(token, 0) + 1
+        frequencies = {
+            term: index.postings[term][position]
+            for term in sorted(query_terms)
+            if position in index.postings.get(term, {})
+        }
         document_length = max(len(tokens), 1)
         score = 0.0
         for term, frequency in frequencies.items():
@@ -560,15 +608,9 @@ def _bm25_candidates(store: Chroma, question: str, limit: int = 6) -> list[Retri
             )
             score += idf * frequency * (k1 + 1.0) / max(denominator, 1e-9)
 
-        metadata_terms = set(
-            _token_list(
-                " ".join(
-                    str(metadata.get(key, ""))
-                    for key in ("title", "source", "directory", "filename")
-                )
-            )
-        )
-        title_overlap = len(query_terms & metadata_terms) / max(len(query_terms), 1)
+        title_overlap = sum(
+            position in index.metadata_postings.get(term, set()) for term in query_terms
+        ) / max(len(query_terms), 1)
         score += title_boost * title_overlap
         if score <= 0.0:
             continue
@@ -1260,6 +1302,7 @@ def _retrieve_once(
     )
     results = _diversify_results(reranked, top_k)
     results = _repair_fragment_results(store, results)
+    context_results = _expand_parent_neighbor_context(store, results)
     total_ms = (time.perf_counter() - started) * 1000
     results = [replace(result, elapsed_ms=total_ms) for result in results]
     evidence = assess_evidence(
@@ -1270,7 +1313,6 @@ def _retrieve_once(
         rerank_ms=rerank_ms,
         reranker_error=reranker_error,
     )
-    context_results = _expand_parent_neighbor_context(store, results)
     return RetrievalReport(
         results=results,
         evidence=evidence,
@@ -1343,7 +1385,7 @@ def _merge_retry_reports(
     )
 
 
-def retrieve_report(store: Chroma, question: str, top_k: int) -> RetrievalReport:
+def _retrieve_report(store: Chroma, question: str, top_k: int) -> RetrievalReport:
     first = _retrieve_once(store, question, top_k, rerank_question=_rerank_query(question))
     retry_query = _retry_query(question)
     if not _should_retry(first, retry_query):
@@ -1359,6 +1401,15 @@ def retrieve_report(store: Chroma, question: str, top_k: int) -> RetrievalReport
         widen=True,
     )
     return _merge_retry_reports(store, first, retry, question, retry_query or question, top_k)
+
+
+def retrieve_report(store: Chroma, question: str, top_k: int) -> RetrievalReport:
+    started = time.perf_counter()
+    report = _retrieve_report(store, question, top_k)
+    elapsed = round((time.perf_counter() - started) * 1000, 1)
+    return replace(report, total_ms=elapsed, results=[
+        replace(result, elapsed_ms=elapsed) for result in report.results
+    ])
 
 
 def retrieve(store: Chroma, question: str, top_k: int) -> list[RetrievalResult]:
