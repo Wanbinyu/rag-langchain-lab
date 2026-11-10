@@ -8,6 +8,7 @@ from pathlib import Path
 from langchain_core.documents import Document
 
 SUPPORTED_SUFFIXES = {".txt", ".md", ".markdown"}
+SKIP_FILENAMES = {"retrieval_glossary.json"}
 
 
 @dataclass(frozen=True)
@@ -43,7 +44,10 @@ def _document_title(path: Path, text: str) -> str:
 
 def read_text_file(path: Path) -> str:
     """读取常见中英文文本编码，无法识别时保留可读内容。"""
-    raw = path.read_bytes()
+    return _decode_text(path.read_bytes())
+
+
+def _decode_text(raw: bytes) -> str:
     for encoding in ("utf-8-sig", "utf-8", "gbk", "gb18030"):
         try:
             return raw.decode(encoding)
@@ -70,7 +74,10 @@ def load_documents_report(data_dir: Path) -> tuple[list[Document], DataIntegrity
     files = sorted(
         path
         for path in data_dir.rglob("*")
-        if path.is_file() and path.suffix.lower() in SUPPORTED_SUFFIXES
+        if path.is_file()
+        and path.suffix.lower() in SUPPORTED_SUFFIXES
+        and path.name not in SKIP_FILENAMES
+        and not any(part.startswith(".") for part in path.relative_to(data_dir).parts)
     )
     documents: list[Document] = []
     empty_files: list[str] = []
@@ -80,7 +87,7 @@ def load_documents_report(data_dir: Path) -> tuple[list[Document], DataIntegrity
         source = path.relative_to(data_dir).as_posix()
         try:
             raw = path.read_bytes()
-            text = read_text_file(path)
+            text = _decode_text(raw)
         except OSError:
             unreadable_files.append(source)
             continue

@@ -19,6 +19,7 @@ from langchain_core.embeddings import Embeddings
 from .chains import answer_question, build_chat_model
 from .cli import build_embeddings
 from .config import Settings, project_settings
+from .glossary import configure_glossary
 from .guardrails import assess_query_boundary
 from .indexing import open_store
 from .retrieval import retrieve_report
@@ -224,6 +225,7 @@ def _answer_keyword_group_scores(
 def _runtime_retrieval_parameters() -> dict[str, str]:
     names = (
         "QUERY_EXPANSION_ENABLED",
+        "QUERY_GLOSSARY_PATH",
         "RERANKER_USE_EXPANDED_QUERY",
         "QUERY_BOUNDARY_GUARD_ENABLED",
         "RETRIEVAL_CANDIDATE_MULTIPLIER",
@@ -259,6 +261,7 @@ def _runtime_retrieval_parameters() -> dict[str, str]:
     )
     defaults = {
         "QUERY_EXPANSION_ENABLED": "1",
+        "QUERY_GLOSSARY_PATH": "",
         "RERANKER_USE_EXPANDED_QUERY": "1",
         "QUERY_BOUNDARY_GUARD_ENABLED": "1",
         "RETRIEVAL_CANDIDATE_MULTIPLIER": "3",
@@ -998,6 +1001,7 @@ def run_evaluation(
     dataset_path = dataset_path or (settings.root / "eval" / "questions.jsonl")
     if not dataset_path.is_absolute():
         dataset_path = settings.root / dataset_path
+    configure_glossary(settings.data_dir)
     cases = load_cases(dataset_path)
     results = evaluate(settings, cases, top_k=top_k, include_answers=include_answers)
     report_path = write_report(settings, results, top_k, include_answers, dataset_path)

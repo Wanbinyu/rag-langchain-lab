@@ -3,18 +3,27 @@ from __future__ import annotations
 import argparse
 import os
 import sys
+import threading
+from functools import lru_cache
 from collections.abc import Sequence
 
 from dotenv import load_dotenv
 from langchain_core.embeddings import Embeddings
 from langchain_openai import OpenAIEmbeddings
 
-from .chains import answer_question, build_chat_model
 from .config import DEFAULT_LOCAL_EMBED_MODEL, Settings, project_settings
+from .glossary import configure_glossary
+from .service import guarded_answer
 from .indexing import IndexReport, index_status, open_store, sync_index
 from .retrieval import print_retrieval_diagnostics, retrieve, retrieve_report
 
 COMMANDS = {"index", "ask", "chat", "status"}
+_EMBEDDING_INIT_LOCK = threading.Lock()
+
+
+@lru_cache(maxsize=2)
+def _local_embeddings(model_name: str) -> Embeddings:
+    return FastEmbedEmbeddings(model_name)
 
 
 class FastEmbedEmbeddings(Embeddings):
@@ -40,7 +49,8 @@ def build_embeddings() -> Embeddings:
             DEFAULT_LOCAL_EMBED_MODEL,
         )
         print(f"Embedding: local FastEmbed ({model})")
-        return FastEmbedEmbeddings(model_name=model)
+        with _EMBEDDING_INIT_LOCK:
+            return _local_embeddings(model)
     if provider in {"openai", "openai-compatible", "api"}:
         if not os.getenv("OPENAI_API_KEY"):
             raise RuntimeError("API Embedding 需要 OPENAI_API_KEY。")
@@ -87,9 +97,7 @@ def answer_once(settings: Settings, question: str, top_k: int) -> None:
     print(f"\n问题: {question}")
     print_retrieval_diagnostics(results)
     print("\n生成回答中...")
-    answer, answer_ms = answer_question(
-        build_chat_model(), question, retrieval.context_results or results
-    )
+    answer, answer_ms, _ = guarded_answer(question, retrieval)
     print("\n回答:")
     print(answer)
     print(f"\n生成耗时: {answer_ms:.0f} ms")
@@ -150,6 +158,7 @@ def main(argv: Sequence[str] | None = None, settings: Settings | None = None) ->
 
     settings = settings or project_settings()
     load_dotenv(settings.root / ".env")
+    configure_glossary(settings.data_dir)
     args = parse_args(sys.argv[1:] if argv is None else argv)
 
     try:

@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import hashlib
+import json
 import os
 from collections import defaultdict
 from collections.abc import Callable
@@ -11,7 +12,7 @@ from langchain_core.documents import Document
 from langchain_core.embeddings import Embeddings
 from langchain_text_splitters import RecursiveCharacterTextSplitter
 
-from .config import Settings
+from .config import DEFAULT_LOCAL_EMBED_MODEL, Settings
 from .loaders import load_documents_report
 
 INDEX_VERSION = "v4-context-integrity"
@@ -78,6 +79,14 @@ def _fingerprint(document: Document, settings: Settings) -> str:
             str(settings.chunk_size),
             str(settings.chunk_overlap),
             str(document.metadata["content_hash"]),
+            hashlib.sha256(json.dumps({
+                "provider": os.getenv("EMBEDDING_PROVIDER", "local"),
+                "local_model": os.getenv("LOCAL_EMBED_MODEL", DEFAULT_LOCAL_EMBED_MODEL),
+                "api_model": os.getenv("OPENAI_EMBED_MODEL", "text-embedding-3-small"),
+                "api_base": os.getenv("OPENAI_API_BASE", ""),
+                "metadata": os.getenv("INDEX_INCLUDE_METADATA", "0"),
+                "parent_size": os.getenv("PARENT_CHUNK_SIZE", "3"),
+            }, sort_keys=True).encode("utf-8")).hexdigest(),
         )
     )
 
@@ -343,7 +352,7 @@ def _chunk_document(document: Document, settings: Settings) -> tuple[list[Docume
         metadata_prefix = "\n".join(metadata_lines) + "\n\n"
     ids: list[str] = []
     for chunk_index, chunk in enumerate(chunks):
-        stable_id = f"{source}:{document.metadata['content_hash']}:{chunk_index}:{INDEX_VERSION}"
+        stable_id = f"{source}:{fingerprint}:{chunk_index}"
         ids.append(hashlib.sha256(stable_id.encode("utf-8")).hexdigest())
 
     parent_size = max(_safe_int_env("PARENT_CHUNK_SIZE", 3), 1)
@@ -408,38 +417,72 @@ def sync_index(
         else:
             added_files += 1
 
-    removed_sources = set(indexed) - set(documents_by_source)
-    delete_sources = removed_sources | {str(doc.metadata["source"]) for doc in changed}
+    # An unreadable file is still present; never interpret an I/O failure as deletion.
+    removed_sources = set(indexed) - set(documents_by_source) - set(data_integrity.unreadable_files)
     report_progress("比较文件哈希，确定增量变更", 40)
-    for source in delete_sources:
-        store.delete(where={"source": source})
+    from .retrieval import clear_lexical_cache
 
-    total_new_chunks = 0
-    if changed:
-        report_progress("加载 Embedding 模型", 55)
-        store = open_store(settings, embeddings_factory())
-        chunks: list[Document] = []
-        ids: list[str] = []
-        for document in changed:
-            document_chunks, document_ids = _chunk_document(document, settings)
-            chunks.extend(document_chunks)
-            ids.extend(document_ids)
-        if chunks:
-            for start in range(0, len(chunks), EMBEDDING_BATCH_SIZE):
-                end = min(start + EMBEDDING_BATCH_SIZE, len(chunks))
-                percent = 80 + int((end / len(chunks)) * 12)
-                report_progress(f"写入向量片段 {end}/{len(chunks)}", percent)
-                store.add_documents(chunks[start:end], ids=ids[start:end])
-            total_new_chunks = len(chunks)
+    try:
+        if changed:
+            report_progress("加载 Embedding 模型", 55)
+            embeddings = embeddings_factory()
+            for position, document in enumerate(changed):
+                chunks, ids = _chunk_document(document, settings)
+                # Compute vectors before changing this source's existing index.
+                vectors: list[list[float]] = []
+                for start in range(0, len(chunks), EMBEDDING_BATCH_SIZE):
+                    vectors.extend(embeddings.embed_documents([
+                        chunk.page_content for chunk in chunks[start:start + EMBEDDING_BATCH_SIZE]
+                    ]))
+                if len(vectors) != len(chunks):
+                    raise RuntimeError("Embedding returned unexpected vector count")
+                source = str(document.metadata["source"])
+                previous = store.get(
+                    where={"source": source}, include=["documents", "metadatas", "embeddings"]
+                )
+                old_ids = set(previous["ids"])
+                try:
+                    for start in range(0, len(chunks), EMBEDDING_BATCH_SIZE):
+                        batch = chunks[start:start + EMBEDDING_BATCH_SIZE]
+                        store._collection.upsert(
+                            ids=ids[start:start + EMBEDDING_BATCH_SIZE],
+                            documents=[chunk.page_content for chunk in batch],
+                            metadatas=[chunk.metadata for chunk in batch],
+                            embeddings=vectors[start:start + EMBEDDING_BATCH_SIZE],
+                        )
+                    obsolete = sorted(old_ids - set(ids))
+                    if obsolete:
+                        store.delete(ids=obsolete)
+                except Exception:
+                    # Restore the previous source on a recoverable backend failure.
+                    # This is not a transaction across process crashes or multiple writers.
+                    for start in range(0, len(previous["ids"]), EMBEDDING_BATCH_SIZE):
+                        end = start + EMBEDDING_BATCH_SIZE
+                        store._collection.upsert(
+                            ids=previous["ids"][start:end],
+                            documents=previous["documents"][start:end],
+                            metadatas=previous["metadatas"][start:end],
+                            embeddings=previous["embeddings"][start:end],
+                        )
+                    new_ids = sorted(set(ids) - old_ids)
+                    if new_ids:
+                        store.delete(ids=new_ids)
+                    raise
+                report_progress(
+                    f"写入文档 {position + 1}/{len(changed)}",
+                    55 + int(37 * (position + 1) / len(changed)),
+                )
+        for source in removed_sources:
+            store.delete(where={"source": source})
+    finally:
+        # Partial success and rollback must invalidate in-process lexical snapshots too.
+        clear_lexical_cache()
 
     report_progress("读取同步后的索引状态", 95)
     final_store = open_store(settings)
     total_chunks = len(final_store.get(include=[]).get("ids") or [])
     index_integrity = check_index_integrity(settings, final_store, documents=documents)
     report_progress("索引同步完成", 100)
-    from .retrieval import clear_lexical_cache
-
-    clear_lexical_cache()
     return IndexReport(
         scanned_files=len(documents),
         total_chunks=total_chunks,

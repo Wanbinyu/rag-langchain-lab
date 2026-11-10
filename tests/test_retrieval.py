@@ -1,10 +1,12 @@
 from __future__ import annotations
 
 import unittest
+from pathlib import Path
 from unittest.mock import patch
 
 from langchain_core.documents import Document
 
+from src.glossary import configure_glossary, reset_glossary_cache
 from src.retrieval import (
     EvidenceAssessment,
     RetrievalReport,
@@ -22,6 +24,10 @@ from src.retrieval import (
     _should_retry,
     _source_intro_candidates,
     assess_evidence,
+)
+
+GRAHAM_GLOSSARY = (
+    Path(__file__).resolve().parents[1] / "eval" / "glossaries" / "graham.json"
 )
 
 
@@ -46,17 +52,40 @@ def _result(
 
 
 class EvidenceAssessmentTests(unittest.TestCase):
+    def setUp(self) -> None:
+        configure_glossary(None)
+        reset_glossary_cache()
+
+    def tearDown(self) -> None:
+        reset_glossary_cache()
+        configure_glossary(None)
+
+    def _graham_glossary_env(self) -> dict[str, str]:
+        return {"QUERY_GLOSSARY_PATH": str(GRAHAM_GLOSSARY), "QUERY_EXPANSION_ENABLED": "1"}
+
+    def test_query_expansion_is_inert_without_corpus_glossary(self) -> None:
+        with patch.dict("os.environ", {"QUERY_GLOSSARY_PATH": "off"}, clear=False):
+            reset_glossary_cache()
+            self.assertEqual(_expand_query("如何找到好的创业想法？"), "如何找到好的创业想法？")
+            self.assertEqual(_rule_topic_terms("创业者怎样从日常经历里发现值得做的产品？"), [])
+
     def test_query_expansion_adds_english_domain_terms(self) -> None:
-        expanded = _expand_query("如何找到好的创业想法？")
+        with patch.dict("os.environ", self._graham_glossary_env(), clear=False):
+            expanded = _expand_query("如何找到好的创业想法？")
         self.assertIn("startup ideas", expanded)
 
     def test_query_expansion_keeps_unmatched_questions_unchanged(self) -> None:
         question = "这个天气问题不在知识库里"
-        self.assertEqual(_expand_query(question), question)
+        with patch.dict("os.environ", self._graham_glossary_env(), clear=False):
+            self.assertEqual(_expand_query(question), question)
 
     def test_reranker_query_keeps_original_and_domain_terms(self) -> None:
         question = "如何找到好的创业想法？"
-        with patch.dict("os.environ", {"RERANKER_USE_EXPANDED_QUERY": "1"}, clear=False):
+        with patch.dict(
+            "os.environ",
+            {**self._graham_glossary_env(), "RERANKER_USE_EXPANDED_QUERY": "1"},
+            clear=False,
+        ):
             expanded = _rerank_query(question)
         self.assertIn(question, expanded)
         self.assertIn("startup ideas", expanded)
@@ -70,9 +99,10 @@ class EvidenceAssessmentTests(unittest.TestCase):
             ("创业过程中如何避免被情绪影响决策？", "user feedback"),
             ("Paul Graham 如何看待“社会压力”对个人选择的影响？", "keep your identity small"),
         )
-        for question, expected_term in cases:
-            with self.subTest(question=question):
-                self.assertIn(expected_term, _expand_query(question))
+        with patch.dict("os.environ", self._graham_glossary_env(), clear=False):
+            for question, expected_term in cases:
+                with self.subTest(question=question):
+                    self.assertIn(expected_term, _expand_query(question))
 
     def test_calibration_questions_get_rule_english_terms(self) -> None:
         cases = (
@@ -82,20 +112,25 @@ class EvidenceAssessmentTests(unittest.TestCase):
             ("什么样的创业构想会让创始人本能地退缩？", "frighteningly ambitious startup ideas"),
             ("创业时低成本运营给团队带来什么战略优势？", "ramen profitable"),
         )
-        for question, expected_term in cases:
-            with self.subTest(question=question):
-                self.assertIn(expected_term, _rule_topic_terms(question))
-                rewritten = _rule_rewrite_query(question)
-                self.assertIsNotNone(rewritten)
-                assert rewritten is not None
-                self.assertIn(expected_term, rewritten)
-                self.assertTrue(rewritten.startswith(expected_term) or expected_term in rewritten)
+        with patch.dict("os.environ", self._graham_glossary_env(), clear=False):
+            for question, expected_term in cases:
+                with self.subTest(question=question):
+                    self.assertIn(expected_term, _rule_topic_terms(question))
+                    rewritten = _rule_rewrite_query(question)
+                    self.assertIsNotNone(rewritten)
+                    assert rewritten is not None
+                    self.assertIn(expected_term, rewritten)
+                    self.assertTrue(rewritten.startswith(expected_term) or expected_term in rewritten)
 
     def test_rule_retry_query_prefers_english_lead_form(self) -> None:
         question = "创业者怎样从日常经历里发现值得做的产品？"
         with patch.dict(
             "os.environ",
-            {"RETRIEVAL_RETRY_ENABLED": "1", "RETRIEVAL_REWRITE_MODE": "rule"},
+            {
+                **self._graham_glossary_env(),
+                "RETRIEVAL_RETRY_ENABLED": "1",
+                "RETRIEVAL_REWRITE_MODE": "rule",
+            },
             clear=False,
         ):
             retry = _retry_query(question)

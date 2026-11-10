@@ -1,0 +1,137 @@
+{
+  "schema_version": 1,
+  "generated_at": "2026-09-07T22:27:26+08:00",
+  "experiment": "multihop-rag-external-100-v1",
+  "claim_boundary": "Deterministic public external sample. It is suitable for baseline comparison but ceases to be blind if used for tuning.",
+  "upstream": {
+    "repository": "https://github.com/yixuantt/MultiHop-RAG",
+    "dataset": "yixuantt/MultiHopRAG",
+    "revision": "71ac0d0bd1f951d2d6b70311f7d2ae404e1ffa82",
+    "license": "ODC-BY-1.0",
+    "raw_sha256": {
+      "MultiHopRAG.json": "03cfb4926461f868684903aadc8024447bdda5bb3f6804741424cce338515bff",
+      "corpus.json": "20b61b5ab84de84a927420c5d265b7ec8d859ae49980699958a787ade9e4d28f"
+    }
+  },
+  "preparation": {
+    "corpus_documents": 609,
+    "upstream_queries": 2556,
+    "sample_cases": 100,
+    "sample_per_type": 25,
+    "sample_type_counts": {
+      "comparison_query": 25,
+      "inference_query": 25,
+      "temporal_query": 25,
+      "null_query": 25
+    },
+    "sample_sha256": "c91cc3b36c4fa1194da1ac186723f194ffbab9fb0b249cb233bb52e84fcf6f20",
+    "seed": "multihop-rag-external-v1"
+  },
+  "configuration": {
+    "collection": "multihop_rag_external_v1",
+    "top_k": 5,
+    "answers_generated": true,
+    "isolated_from_primary_corpus": true
+  },
+  "summary": {
+    "total_cases": 100,
+    "positive_cases": 75,
+    "abstention_expected_cases": 25,
+    "abstention_scored_cases": 25,
+    "source_scored_cases": 75,
+    "source_hit_count": 72,
+    "source_miss_count": 3,
+    "hit_rate_at_k": 0.96,
+    "mrr": 0.9056,
+    "avg_top_score": 0.0449,
+    "retrieval_avg_ms": 3538.1,
+    "retrieval_p50_ms": 3501.1,
+    "retrieval_p95_ms": 3937.0,
+    "retrieval_max_ms": 8507.7,
+    "answers_generated": 100,
+    "model_answer_calls": 74,
+    "answer_refusal_count": 26,
+    "answer_avg_ms": 30226.5,
+    "keyword_hit_rate": 0.3467,
+    "abstention_hit_rate": 0.96,
+    "abstention_correct_count": 24,
+    "retrieval_abstention_scored_cases": 25,
+    "retrieval_abstention_hit_rate": 0.96,
+    "retrieval_abstention_correct_count": 24,
+    "retrieval_decision_scored_cases": 100,
+    "retrieval_decision_hit_rate": 0.97,
+    "retrieval_decision_correct_count": 97,
+    "evidence_sufficient_rate": 0.45,
+    "evidence_review_rate": 0.29,
+    "evidence_insufficient_rate": 0.26,
+    "evidence_counts": {
+      "review": 29,
+      "sufficient": 45,
+      "insufficient": 26
+    },
+    "reranker_provider_counts": {
+      "cross_encoder": 100
+    },
+    "answer_error_count": 0,
+    "answer_points_annotated_cases": 0,
+    "answer_point_scored_cases": 0,
+    "answer_point_coverage": null,
+    "answer_point_hit_rate": null,
+    "answer_points_covered": 0,
+    "answer_points_scored": 0,
+    "answer_point_normalized_coverage": null,
+    "answer_point_normalized_hit_rate": null,
+    "answer_points_normalized_covered": 0,
+    "answer_points_normalized_scored": 0,
+    "answer_keyword_groups_annotated_cases": 0,
+    "answer_keyword_group_scored_cases": 0,
+    "answer_keyword_group_coverage": null,
+    "answer_keyword_group_hit_rate": null,
+    "answer_keyword_groups_covered": 0,
+    "answer_keyword_groups_scored": 0,
+    "answer_review_scored_cases": 0,
+    "answer_review_status_counts": {},
+    "answer_review_sufficient_rate": null,
+    "answer_review_review_rate": null,
+    "answer_review_insufficient_rate": null,
+    "answer_review_missing_group_cases": 0,
+    "citation_scored_cases": 100,
+    "citation_valid_count": 97,
+    "citation_valid_rate": 0.97,
+    "citation_missing_count": 3,
+    "unsupported_citation_count": 0,
+    "answer_contract_scored_cases": 74,
+    "answer_contract_valid_count": 74,
+    "answer_contract_valid_rate": 1.0,
+    "answer_contract_missing_section_counts": {},
+    "retrieval_retry_count": 0,
+    "retrieval_retry_rate": 0.0,
+    "avg_context_result_count": 10,
+    "avg_parent_context_count": 2.04,
+    "avg_neighbor_context_count": 2.96
+  },
+  "multihop_summary": {
+    "answerable_cases": 75,
+    "any_evidence_hit_rate": 0.96,
+    "complete_evidence_hit_rate": 0.44,
+    "mean_evidence_source_recall": 0.7156,
+    "mean_evidence_source_recall_by_type": {
+      "comparison_query": 0.7933,
+      "inference_query": 0.5867,
+      "temporal_query": 0.7667
+    }
+  },
+  "multihop_answer_summary": {
+    "scored_cases": 100,
+    "correct_count": 75,
+    "correct_rate": 0.75,
+    "binary_reference_cases": 48,
+    "method": "bilingual_conclusion_stance_or_reference_entity_containment",
+    "correct_rate_by_type": {
+      "comparison_query": 0.48,
+      "inference_query": 0.96,
+      "null_query": 0.96,
+      "temporal_query": 0.6
+    }
+  }
+}

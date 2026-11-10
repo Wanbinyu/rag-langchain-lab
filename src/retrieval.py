@@ -4,13 +4,18 @@ import hashlib
 import math
 import os
 import re
+import sqlite3
 import threading
 import time
+from collections import Counter, defaultdict
+from pathlib import Path
 from dataclasses import dataclass, field, replace
 from typing import Literal
 
 from langchain_chroma import Chroma
 from langchain_core.documents import Document
+
+from .glossary import active_glossary, expansion_enabled
 
 
 EvidenceStatus = Literal["sufficient", "review", "insufficient"]
@@ -19,203 +24,15 @@ _RERANKER_LOCK = threading.Lock()
 _RERANKER_CACHE: dict[str, object] = {}
 _RERANKER_ERRORS: dict[str, str] = {}
 _LEXICAL_CACHE_LOCK = threading.Lock()
-_LEXICAL_CACHE: dict[str, tuple[int, list[tuple[str, dict[str, object]]]]] = {}
-_BM25_CACHE: dict[str, tuple[int, "_BM25Index"]] = {}
+_LEXICAL_CACHE: dict[str, tuple[object, list[tuple[str, dict[str, object]]]]] = {}
+_BM25_CACHE: dict[str, tuple[object, "_BM25Index"]] = {}
+_DATABASE_VERSIONS: dict[str, sqlite3.Connection] = {}
 _TOKEN_RE = re.compile(r"[a-z0-9]+|[\u4e00-\u9fff]+", re.IGNORECASE)
 _STOP_WORDS = {
     "a", "an", "and", "are", "be", "by", "for", "from", "how", "in", "is",
     "it", "of", "on", "or", "the", "to", "what", "why", "with", "what's",
     "的", "了", "和", "是", "在", "对", "与", "为", "什么", "如何", "为什么", "什", "么",
 }
-
-# A small, domain-specific glossary helps lexical retrieval bridge Chinese
-# questions and English source titles. It is intentionally used for candidate
-# supplementation only; the original question is still sent to the Reranker.
-_QUERY_ALIAS_PAIRS: tuple[tuple[str, tuple[str, ...]], ...] = (
-    ("创业想法", ("startup ideas", "how to get startup ideas", "ideas for startups")),
-    ("创业方向", ("startup ideas", "startup direction", "startup potential")),
-    ("创业点子", ("startup ideas", "ideas for startups")),
-    ("无法规模化", ("do things that don't scale", "recruit users manually")),
-    ("不规模化", ("do things that don't scale", "recruit users manually")),
-    ("亲自服务", ("early users", "customer service", "do things that don't scale")),
-    ("联合创始人", ("cofounders", "pick good cofounders")),
-    ("用户真正想要", ("users want", "understand your users")),
-    ("少而精", ("a few users love you", "a lot ambivalent")),
-    ("让用户爱上", ("a few users love you", "surprisingly good customer service")),
-    ("财富", ("create wealth", "how to make wealth")),
-    ("尽快上线", ("launch fast", "launch and iterate")),
-    ("快速上线", ("launch fast", "launch and iterate")),
-    ("上线", ("launch fast", "launch and iterate")),
-    ("默认存活", ("default alive", "default dead")),
-    ("默认死亡", ("default alive", "default dead")),
-    ("烧钱", ("default alive", "default dead", "spend little")),
-    ("拉面", ("ramen profitable", "get ramen profitable")),
-    ("增长", ("startup growth", "weekly growth rate")),
-    ("衡量", ("you make what you measure", "measure progress")),
-    ("会议", ("maker's schedule", "manager's schedule", "meetings")),
-    ("创造者", ("maker's schedule", "manager's schedule", "deep work")),
-    ("连续时间", ("maker's schedule", "deep work", "continuous time")),
-    ("频繁打断", ("maker's schedule", "interruptions", "deep work")),
-    ("写作", ("write like you talk", "writing", "write simply")),
-    ("像说话一样", ("write like you talk", "spoken language")),
-    ("专家", ("expert", "how to be an expert", "how to be an expert in a changing world", "domain experts", "expertise")),
-    ("新手", ("noob", "beginner", "expert", "how to be an expert in a changing world")),
-    ("前沿", ("frontier", "great work")),
-    ("伟大的工作", ("great work", "do great work")),
-    ("好奇心", ("curiosity", "great work")),
-    ("天赋", ("ability", "interest", "effort")),
-    ("社会压力", ("social pressure", "social expectations", "prestige", "interest", "how to do great work", "keep your identity small")),
-    ("声望", ("prestige", "fame", "interest", "do what you love", "how to do what you love", "how to do great work")),
-    ("兴趣", ("interest", "do what you love", "how to do what you love", "how to do great work")),
-    ("竞争", ("competition", "competitors")),
-    ("产品迭代", ("product iteration", "launch and iterate", "launch fast", "evolving your idea", "understand your users", "startups in 13 sentences")),
-    ("用户反馈", ("user feedback", "understand your users")),
-    ("融资", ("fundraising", "funding", "default alive")),
-    # Abstract Chinese questions need a small amount of domain vocabulary
-    # before BM25 can match the English essay titles. These aliases are only
-    # candidate supplements; the original question remains available to the
-    # reranker and answer model.
-    ("创业成功", ("make something users want", "startup mistakes", "startups in 13 sentences")),
-    ("工作与生活平衡", ("work life balance", "how to do what you love", "great work")),
-    ("尽快融资", ("default alive", "default dead", "fundraising")),
-    ("控制开支", ("spend practically nothing", "ramen profitable", "low burn")),
-    ("正确的方向", ("startup growth", "make something users want", "measure progress")),
-    ("坚持", ("never give up", "right kind of stubborn", "determination")),
-    ("放弃", ("never give up", "right kind of stubborn", "determination")),
-    ("有机创业想法", ("organic startup ideas", "how to get startup ideas")),
-    ("用户数量", ("a few users love you", "a lot of users ambivalent", "startup growth")),
-    ("用户满意度", ("a few users love you", "users want", "do things that don't scale")),
-    ("早期用户", ("early users", "early customers", "user feedback")),
-    ("创业早期", ("before the startup", "startups in 13 sentences", "how to start a startup")),
-    ("写作清晰", ("write simply", "write like you talk")),
-    ("做到前沿", ("frontier", "great work", "learn")),
-    ("长期投入", ("great work", "long term", "interest")),
-    ("努力", ("how to work hard", "bus ticket theory of genius", "great work")),
-    ("Bus Ticket", ("bus ticket theory of genius", "how to work hard")),
-    ("时间管理", ("maker's schedule", "manager's schedule")),
-    ("大块连续时间", ("maker's schedule", "continuous time", "deep work")),
-    ("理解用户", ("understand your users", "users want", "startups in 13 sentences")),
-    ("核心要点", ("startups in 13 sentences", "startup principles")),
-    ("早期客户的反馈", ("do things that don't scale", "early users", "user feedback")),
-    ("不建议一开始就追求规模化", ("do things that don't scale", "scale")),
-    ("值得做成公司", ("organic startup ideas", "startup ideas", "company")),
-    ("失败", ("failure", "great work", "startups in 13 sentences")),
-    ("情绪影响决策", ("emotion", "judgment", "great work")),
-    ("迎合别人期望", ("prestige", "do what you love", "great work")),
-    ("最有价值", ("great work", "how to do what you love")),
-    ("保持天真", ("being a noob", "how to think for yourself", "naive")),
-    ("压力和不确定性", ("startups in 13 sentences", "great work", "uncertainty")),
-    ("竞争对手", ("competition", "competitors", "ideas for startups")),
-    ("技术", ("technology", "product", "design and research")),
-    ("哪个更重要", ("product", "technology", "design and research")),
-    ("有潜力", ("startup ideas", "frighteningly ambitious startup ideas", "great work")),
-    ("声望和兴趣", ("prestige", "interest", "great work")),
-    # Targeted English topics for the six explicit cross-language misses. The
-    # original Chinese question remains in every expanded query.
-    ("ideas are worthless", ("ideas are cheap", "startup ideas change", "execute and iterate", "startups in 13 sentences", "how to get startup ideas")),
-    ("声望和兴趣", ("prestige vs interest", "do what you love", "how to do what you love", "how to do great work")),
-    ("情绪影响决策", ("user data", "user feedback", "measure progress", "be careful what you measure", "startups in 13 sentences", "how to do great work")),
-    ("社会压力", ("social expectations", "prestige", "what you love", "how to do great work", "keep your identity small")),
-    ("专家和新手", ("how to be an expert in a changing world", "domain experts", "startup expertise", "beginner vs expert")),
-    ("好问题", ("the best essay", "great work", "questions")),
-    ("问题本身", ("the best essay", "questions")),
-    # Calibration-set rewordings: keep phrases specific enough to avoid noisy
-    # expansion on unrelated Chinese questions.
-    ("日常经历", ("how to get startup ideas", "organic startup ideas", "ideas for startups")),
-    ("值得做的产品", ("how to get startup ideas", "organic startup ideas", "startup ideas")),
-    ("第一批客户", ("do things that don't scale", "early users", "recruit users manually")),
-    ("少数客户", ("a few users love you", "startups in 13 sentences")),
-    ("default alive", ("default alive", "default dead")),
-    ("default dead", ("default alive", "default dead")),
-    ("现金跑道", ("default alive", "default dead", "runway")),
-    ("低成本运营", ("ramen profitable", "spend practically nothing", "low burn", "startups in 13 sentences")),
-    ("注册数字", ("startup growth", "measure progress", "vanity metrics", "users love you")),
-    ("真正使用产品", ("startup growth", "retention", "users love you", "measure progress")),
-    ("本能地退缩", ("frighteningly ambitious startup ideas", "ambitious startup ideas")),
-    ("产生新想法", ("putting ideas into words", "write like you talk", "writing")),
-    ("信任和关系", ("cofounders", "pick good cofounders", "the 18 mistakes that kill startups")),
-)
-
-# Multi-signal rewrite rules for the controlled retry path. A rule fires when
-# at least ``min_hits`` of its signal phrases appear in the question. Terms are
-# English retrieval aids only; they never enter the answer prompt.
-_REWRITE_TOPIC_RULES: tuple[tuple[tuple[str, ...], int, tuple[str, ...]], ...] = (
-    (
-        ("日常经历", "值得做的产品", "身边的缺口", "真实问题", "发现值得做"),
-        1,
-        ("how to get startup ideas", "organic startup ideas", "ideas for startups"),
-    ),
-    (
-        ("亲手", "第一批客户", "搭建产品", "不能规模化", "不规模化"),
-        1,
-        ("do things that don't scale", "early users", "recruit users manually"),
-    ),
-    (
-        ("少数客户", "狂热", "少量用户", "再逐步扩大", "口碑"),
-        1,
-        ("a few users love you", "startups in 13 sentences", "do things that don't scale"),
-    ),
-    (
-        ("default alive", "default dead", "现金跑道", "烧钱速度", "盈亏平衡"),
-        1,
-        ("default alive", "default dead", "runway"),
-    ),
-    (
-        ("写代码", "会议", "连续时间", "创造者", "深度工作"),
-        1,
-        ("maker's schedule", "manager's schedule", "meetings", "deep work"),
-    ),
-    (
-        ("用户反馈", "想法演进", "调整", "迭代"),
-        2,
-        ("startups in 13 sentences", "launch and iterate", "understand your users", "user feedback"),
-    ),
-    (
-        ("社会声望", "声望", "真正喜欢", "兴趣"),
-        2,
-        ("prestige", "how to do what you love", "how to do great work", "do what you love"),
-    ),
-    (
-        ("领域前沿", "前沿", "缺口", "伟大工作"),
-        2,
-        ("how to do great work", "frontier", "great work"),
-    ),
-    (
-        ("写作", "新想法", "记录想法", "产生新"),
-        2,
-        ("putting ideas into words", "write like you talk", "write simply"),
-    ),
-    (
-        ("低成本", "运营", "生存时间", "融资依赖"),
-        1,
-        ("ramen profitable", "spend practically nothing", "startups in 13 sentences", "low burn"),
-    ),
-    (
-        ("真正使用", "注册数字", "留存", "虚荣指标"),
-        1,
-        ("startup growth", "measure progress", "you make what you measure", "users love you"),
-    ),
-    (
-        ("联合创始人", "信任", "关系质量"),
-        1,
-        ("cofounders", "pick good cofounders", "the 18 mistakes that kill startups"),
-    ),
-    (
-        ("衡量指标", "错误的衡量", "指标", "优化"),
-        2,
-        ("you make what you measure", "measure progress", "startups in 13 sentences"),
-    ),
-    (
-        ("退缩", "害怕", "有野心", "本能"),
-        1,
-        ("frighteningly ambitious startup ideas", "ambitious startup ideas"),
-    ),
-    (
-        ("好奇心", "兴趣", "长期", "创造性"),
-        2,
-        ("how to do great work", "bus ticket theory of genius", "curiosity", "interest"),
-    ),
-)
 
 
 @dataclass(frozen=True)
@@ -264,6 +81,8 @@ class _BM25Index:
     tokenized_documents: list[list[str]]
     document_frequency: dict[str, int]
     average_document_length: float
+    postings: dict[str, dict[int, int]] = field(default_factory=dict)
+    metadata_postings: dict[str, set[int]] = field(default_factory=dict)
 
 
 def _float_env(name: str, default: float) -> float:
@@ -295,8 +114,7 @@ def _bool_env(name: str, default: bool = False) -> bool:
 
 
 def _query_expansion_enabled() -> bool:
-    value = (os.getenv("QUERY_EXPANSION_ENABLED") or "1").strip().lower()
-    return value not in {"0", "false", "off", "no", "disabled"}
+    return expansion_enabled()
 
 
 def _query_aliases(question: str) -> list[str]:
@@ -304,17 +122,19 @@ def _query_aliases(question: str) -> list[str]:
         return []
     lower_question = question.lower()
     aliases: list[str] = []
-    for phrase, values in _QUERY_ALIAS_PAIRS:
+    for phrase, values in active_glossary().aliases:
         if phrase.lower() in lower_question:
             aliases.extend(values)
     return list(dict.fromkeys(aliases))
 
 
 def _rule_topic_terms(question: str) -> list[str]:
-    """Return English topic terms from multi-signal rewrite rules."""
+    """Return English topic terms from corpus rewrite rules, if a glossary is loaded."""
+    if not _query_expansion_enabled():
+        return []
     lower_question = question.lower()
     terms: list[str] = []
-    for signals, min_hits, values in _REWRITE_TOPIC_RULES:
+    for signals, min_hits, values in active_glossary().rewrite_rules:
         hits = sum(1 for signal in signals if signal.lower() in lower_question)
         if hits >= max(min_hits, 1):
             terms.extend(values)
@@ -474,7 +294,7 @@ def _sigmoid(value: float) -> float:
     return 1.0 / (1.0 + math.exp(-clipped))
 
 
-_RERANK_PAIR_CACHE: dict[tuple[str, str], float] = {}
+_RERANK_PAIR_CACHE: dict[tuple[str, str, str], float] = {}
 _RERANK_PAIR_CACHE_LOCK = threading.Lock()
 _RERANK_PAIR_CACHE_MAX = 4096
 
@@ -518,7 +338,7 @@ def _rerank(
                 for result in results
             ]
             q_key = _question_cache_key(question)
-            pair_keys = [(q_key, _doc_cache_key(doc)) for doc in documents]
+            pair_keys = [(model_name, q_key, _doc_cache_key(doc)) for doc in documents]
             cached_scores: list[float | None] = [None] * len(documents)
             missing_indices: list[int] = []
             if _bool_env("RERANK_PAIR_CACHE_ENABLED", True):
@@ -603,15 +423,45 @@ def clear_lexical_cache() -> None:
     with _LEXICAL_CACHE_LOCK:
         _LEXICAL_CACHE.clear()
         _BM25_CACHE.clear()
+        for connection in _DATABASE_VERSIONS.values():
+            connection.close()
+        _DATABASE_VERSIONS.clear()
+
+
+def _corpus_cache_identity(store: Chroma) -> tuple[str, object]:
+    collection = getattr(store, "_collection", None)
+    client = getattr(store, "_client", None)
+    settings = client.get_settings() if client is not None else None
+    directory = settings.persist_directory if settings is not None and settings.is_persistent else None
+    collection_id = getattr(collection, "id", None)
+    if not directory or not collection_id:
+        # Test doubles and non-persistent stores must not share snapshots by name.
+        return str(id(store)), object()
+    root = Path(directory).resolve()
+    database = root / "chroma.sqlite3"
+    with _LEXICAL_CACHE_LOCK:
+        connection = _DATABASE_VERSIONS.get(str(database))
+        if connection is None:
+            # data_version detects commits even when row counts and filesystem
+            # timestamps do not change (notably on Windows). Keep the observer
+            # connection open: version numbers are local to each connection.
+            if len(_DATABASE_VERSIONS) >= 16:
+                for observer in _DATABASE_VERSIONS.values():
+                    observer.close()
+                _DATABASE_VERSIONS.clear()
+                _LEXICAL_CACHE.clear()
+                _BM25_CACHE.clear()
+            connection = sqlite3.connect(
+                database.as_uri() + "?mode=ro", uri=True, check_same_thread=False,
+            )
+            _DATABASE_VERSIONS[str(database)] = connection
+        version = connection.execute("PRAGMA data_version").fetchone()[0]
+    return f"{root}:{collection_id}", (collection.count(), version)
+
 
 
 def _lexical_corpus(store: Chroma) -> list[tuple[str, dict[str, object]]]:
-    collection = getattr(store, "_collection", None)
-    collection_key = str(getattr(collection, "name", id(store)))
-    try:
-        count = int(collection.count()) if collection is not None else -1
-    except Exception:  # pragma: no cover - depends on Chroma backend
-        count = -1
+    collection_key, count = _corpus_cache_identity(store)
     with _LEXICAL_CACHE_LOCK:
         cached = _LEXICAL_CACHE.get(collection_key)
         if cached and cached[0] == count:
@@ -674,12 +524,7 @@ def _heuristic_lexical_candidates(store: Chroma, question: str, limit: int = 6) 
 
 
 def _bm25_index(store: Chroma) -> _BM25Index:
-    collection = getattr(store, "_collection", None)
-    collection_key = str(getattr(collection, "name", id(store)))
-    try:
-        count = int(collection.count()) if collection is not None else -1
-    except Exception:  # pragma: no cover - depends on Chroma backend
-        count = -1
+    collection_key, count = _corpus_cache_identity(store)
     with _LEXICAL_CACHE_LOCK:
         cached = _BM25_CACHE.get(collection_key)
         if cached and cached[0] == count:
@@ -688,15 +533,23 @@ def _bm25_index(store: Chroma) -> _BM25Index:
     corpus = _lexical_corpus(store)
     tokenized_documents: list[list[str]] = []
     document_frequency: dict[str, int] = {}
-    for content, metadata in corpus:
+    postings: dict[str, dict[int, int]] = defaultdict(dict)
+    metadata_postings: dict[str, set[int]] = defaultdict(set)
+    for position, (content, metadata) in enumerate(corpus):
         # Keep the BM25 body score about the chunk itself. Repeating the same
         # title/path tokens in every chunk makes short heading-only chunks
         # look more relevant than the paragraphs that contain the answer.
         # Metadata is added separately as a bounded title bonus below.
         tokens = _token_list(content)
         tokenized_documents.append(tokens)
-        for term in set(tokens):
+        for term, frequency in Counter(tokens).items():
             document_frequency[term] = document_frequency.get(term, 0) + 1
+            postings[term][position] = frequency
+        metadata_terms = set(_token_list(" ".join(
+            str(metadata.get(key, "")) for key in ("title", "source", "directory", "filename")
+        )))
+        for term in metadata_terms:
+            metadata_postings[term].add(position)
     average_length = (
         sum(len(tokens) for tokens in tokenized_documents) / len(tokenized_documents)
         if tokenized_documents
@@ -707,6 +560,8 @@ def _bm25_index(store: Chroma) -> _BM25Index:
         tokenized_documents=tokenized_documents,
         document_frequency=document_frequency,
         average_document_length=max(average_length, 1.0),
+        postings=dict(postings),
+        metadata_postings=dict(metadata_postings),
     )
     with _LEXICAL_CACHE_LOCK:
         _BM25_CACHE[collection_key] = (count, index)
@@ -727,12 +582,19 @@ def _bm25_candidates(store: Chroma, question: str, limit: int = 6) -> list[Retri
     title_boost = max(_float_env("BM25_TITLE_BOOST", 0.2), 0.0)
     total_documents = len(index.documents)
     scored: list[tuple[float, RetrievalResult]] = []
-    for position, (content, metadata) in enumerate(index.documents):
+    positions: set[int] = set()
+    for term in query_terms:
+        positions.update(index.postings.get(term, {}))
+        if title_boost:
+            positions.update(index.metadata_postings.get(term, set()))
+    for position in sorted(positions):
+        content, metadata = index.documents[position]
         tokens = index.tokenized_documents[position]
-        frequencies: dict[str, int] = {}
-        for token in tokens:
-            if token in query_terms:
-                frequencies[token] = frequencies.get(token, 0) + 1
+        frequencies = {
+            term: index.postings[term][position]
+            for term in sorted(query_terms)
+            if position in index.postings.get(term, {})
+        }
         document_length = max(len(tokens), 1)
         score = 0.0
         for term, frequency in frequencies.items():
@@ -746,15 +608,9 @@ def _bm25_candidates(store: Chroma, question: str, limit: int = 6) -> list[Retri
             )
             score += idf * frequency * (k1 + 1.0) / max(denominator, 1e-9)
 
-        metadata_terms = set(
-            _token_list(
-                " ".join(
-                    str(metadata.get(key, ""))
-                    for key in ("title", "source", "directory", "filename")
-                )
-            )
-        )
-        title_overlap = len(query_terms & metadata_terms) / max(len(query_terms), 1)
+        title_overlap = sum(
+            position in index.metadata_postings.get(term, set()) for term in query_terms
+        ) / max(len(query_terms), 1)
         score += title_boost * title_overlap
         if score <= 0.0:
             continue
@@ -1446,6 +1302,7 @@ def _retrieve_once(
     )
     results = _diversify_results(reranked, top_k)
     results = _repair_fragment_results(store, results)
+    context_results = _expand_parent_neighbor_context(store, results)
     total_ms = (time.perf_counter() - started) * 1000
     results = [replace(result, elapsed_ms=total_ms) for result in results]
     evidence = assess_evidence(
@@ -1456,7 +1313,6 @@ def _retrieve_once(
         rerank_ms=rerank_ms,
         reranker_error=reranker_error,
     )
-    context_results = _expand_parent_neighbor_context(store, results)
     return RetrievalReport(
         results=results,
         evidence=evidence,
@@ -1529,7 +1385,7 @@ def _merge_retry_reports(
     )
 
 
-def retrieve_report(store: Chroma, question: str, top_k: int) -> RetrievalReport:
+def _retrieve_report(store: Chroma, question: str, top_k: int) -> RetrievalReport:
     first = _retrieve_once(store, question, top_k, rerank_question=_rerank_query(question))
     retry_query = _retry_query(question)
     if not _should_retry(first, retry_query):
@@ -1545,6 +1401,15 @@ def retrieve_report(store: Chroma, question: str, top_k: int) -> RetrievalReport
         widen=True,
     )
     return _merge_retry_reports(store, first, retry, question, retry_query or question, top_k)
+
+
+def retrieve_report(store: Chroma, question: str, top_k: int) -> RetrievalReport:
+    started = time.perf_counter()
+    report = _retrieve_report(store, question, top_k)
+    elapsed = round((time.perf_counter() - started) * 1000, 1)
+    return replace(report, total_ms=elapsed, results=[
+        replace(result, elapsed_ms=elapsed) for result in report.results
+    ])
 
 
 def retrieve(store: Chroma, question: str, top_k: int) -> list[RetrievalResult]:

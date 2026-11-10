@@ -16,6 +16,8 @@ def build_chat_model() -> ChatOpenAI:
     kwargs: dict[str, object] = {
         "model": os.getenv("OPENAI_CHAT_MODEL", "deepseek-v4-flash"),
         "temperature": 0,
+        "timeout": max(float(os.getenv("CHAT_TIMEOUT_SECONDS", "60")), 1.0),
+        "max_retries": max(int(os.getenv("CHAT_MAX_RETRIES", "1")), 0),
     }
     if base_url := os.getenv("OPENAI_API_BASE"):
         kwargs["base_url"] = base_url

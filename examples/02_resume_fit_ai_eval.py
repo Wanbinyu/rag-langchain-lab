@@ -37,6 +37,8 @@ SMALL_CORPUS_BUDGET = {
     "RETRIEVAL_CANDIDATE_MIN": "5",
     "RETRIEVAL_CANDIDATE_MAX": "6",
     "HYBRID_CANDIDATE_POOL": "6",
+    # Transfer checks the generic path: no Graham (or any) domain glossary.
+    "QUERY_GLOSSARY_PATH": "off",
 }
 
 MODE_ENV: dict[str, dict[str, str]] = {
